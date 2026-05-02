@@ -43,7 +43,7 @@ The `lash.json` manifest in this repo installs the CLI **and** registers a Claud
 
 ```bash
 # One-time prerequisite (zero-dep Python script):
-uv tool install lash               # once on PyPI; for now: git+https://github.com/johntrandall/lash
+uv tool install lash-installer     # once on PyPI; for now: git+https://github.com/johntrandall/lash
 
 # Then from this repo:
 cd ~/dev/oplx-tools
