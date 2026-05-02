@@ -111,11 +111,22 @@ With the [Claude Code lint hook](#full-install-cli--claude-code-lint-hook) insta
 
 ### Quick install (CLI only)
 
+**Homebrew (macOS):**
+
 ```bash
-uv tool install oplx-tools     # once on PyPI; not yet
+brew tap johntrandall/tap
+brew install oplx-tools
+```
+
+**uv (Python tool, cross-platform):**
+
+```bash
+uv tool install oplx-tools
 # Or from a local clone:
 uv tool install ~/dev/oplx-tools
 ```
+
+The CLI command is `oplx`. The full install path below adds the Claude Code lint hook on top of the CLI.
 
 ### Full install (CLI + Claude Code lint hook)
 
