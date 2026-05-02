@@ -1,0 +1,22 @@
+title: Simple Project Example
+start_date: 2026-06-01T13:00:00Z
+
+tasks:
+  - id: t1
+    title: Plan
+    effort: 14400      # 4h
+
+  - id: t2
+    title: Build
+    effort: 28800      # 8h
+    depends_on: [t1]
+
+  - id: t3
+    title: Test
+    effort: 14400
+    depends_on: [t2]
+
+  - id: t4
+    title: Ship
+    type: milestone
+    depends_on: [t3]
