@@ -2,6 +2,16 @@
 
 **Python tooling for OmniPlan `.oplx` documents.** Companion to [`oplx-format`](https://github.com/USER/oplx-format) (the file-format specification).
 
+> **Naming note**: `oplx` is the file extension OmniPlan uses (`.oplx`). This project is **not** related to Yamaha OPL audio synthesis chips (OPL2/OPL3/OPL4) which share a similar string in some retro-audio communities.
+
+## Prior art
+
+If you're looking for OmniPlan automation, you may also want to evaluate:
+
+- [**liyanage/omniplan-python**](https://github.com/liyanage/omniplan-python) — older library focused on data access (read-side). Different scope from `oplx-tools` (this repo emphasizes from-scratch file generation, lint, and silent-corruption detection).
+
+This repo is intended to complement, not replace, prior community work. PRs that improve interop with existing libraries are welcome.
+
 ## What's here
 
 - **`oplx generate`** — build a minimum-viable `.oplx` from a YAML/JSON description (no OmniPlan required)
