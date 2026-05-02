@@ -1,24 +1,104 @@
 # oplx-tools
 
-**Python tooling for OmniPlan `.oplx` documents.** Companion to [`oplx-format`](https://github.com/johntrandall/oplx-format) (the file-format specification).
+**Python tooling for OmniPlan `.oplx` documents.** Generate, lint, and parse `.oplx` files **without OmniPlan running or installed**.
 
 > **Naming note**: `oplx` is the file extension OmniPlan uses (`.oplx`). This project is **not** related to Yamaha OPL audio synthesis chips (OPL2/OPL3/OPL4) which share a similar string in some retro-audio communities.
 
+## Ecosystem
+
+This repo is one of three working together:
+
+| Repo | What it is | When to use |
+|---|---|---|
+| 📖 [**oplx-format**](https://github.com/johntrandall/oplx-format) | The file-format **specification** (CC-BY-4.0) | Read this if you're writing any `.oplx` tool in any language |
+| 🐍 [**oplx-tools**](https://github.com/johntrandall/oplx-tools) (this repo) | **Python implementation**: generate / lint / parse — **no OmniPlan needed** | Headless `.oplx` workflows: CI/CD, batch generation, ETL |
+| 🤖 [**omniplan-mcp**](https://github.com/johntrandall/omniplan-mcp) | **MCP server** for live OmniPlan automation (requires OmniPlan running) | Conversational task management with Claude — "schedule a task tomorrow at 2pm" |
+| 📦 [**lash**](https://github.com/johntrandall/lash) | The installer used to wire `oplx-tools`'s lint hook into Claude Code | One-shot setup for the agent integration |
+
+**Picking between live MCP and headless oplx-tools:**
+
+- Use [**omniplan-mcp**](https://github.com/johntrandall/omniplan-mcp) when you want conversational interaction with the running app (open documents, query/edit live tasks, schedule changes).
+- Use **this repo** when you want to **read, create, or edit `.oplx` files without running OmniPlan at all** — agents on Linux, CI pipelines, batch generation from spreadsheets, headless tests, mass migration, etc. No GUI, no license, no Mac required.
+
 ## Prior art
 
-If you're looking for OmniPlan automation, you may also want to evaluate:
+- [**liyanage/omniplan-python**](https://github.com/liyanage/omniplan-python) — older Python library focused on read-side data access. Different scope from `oplx-tools` (this repo emphasizes from-scratch file generation, lint, and silent-corruption detection). Use both if you need both reading and writing.
 
-- [**liyanage/omniplan-python**](https://github.com/liyanage/omniplan-python) — older library focused on data access (read-side). Different scope from `oplx-tools` (this repo emphasizes from-scratch file generation, lint, and silent-corruption detection).
-
-This repo is intended to complement, not replace, prior community work. PRs that improve interop with existing libraries are welcome.
+PRs that improve interop with existing libraries are welcome.
 
 ## What's here
 
 - **`oplx generate`** — build a minimum-viable `.oplx` from a YAML/JSON description (no OmniPlan required)
-- **`oplx lint`** — validate a `.oplx` (zip or directory) against the format spec; catch silent-corruption patterns before they bite
+- **`oplx lint`** — validate a `.oplx` (zip or directory) against the [format spec](https://github.com/johntrandall/oplx-format); catch silent-corruption patterns before they bite
 - **`oplx parse`** — extract tasks/resources/dependencies/assignments from an `.oplx` for downstream tools (BI, ETL, integrations)
 
-The spec lives in a separate repo (`oplx-format`) so it can be referenced by tool authors in any language. This repo is the Python reference implementation.
+The spec lives in a separate repo ([`oplx-format`](https://github.com/johntrandall/oplx-format)) so it can be referenced by tool authors in any language. This repo is the Python reference implementation.
+
+## Use cases
+
+These all work **without OmniPlan running or installed**:
+
+### 1. Generate `.oplx` files from external sources
+
+Drive OmniPlan's task tree from your existing data. Turn a CSV, JSON dataset, or YAML manifest into a valid `.oplx` your stakeholders can open in OmniPlan to review:
+
+```bash
+oplx generate roadmap.yaml --out roadmap.oplx
+```
+
+Useful for: project bootstrapping from templates, generating per-customer plans, converting Jira/Linear/GitHub issue exports into a Gantt chart your PMs can review and edit, weekly auto-regenerated baselines.
+
+### 2. Headless lint in CI/CD
+
+Run on Linux runners with no Mac, no OmniPlan license:
+
+```yaml
+# .github/workflows/oplx-lint.yml
+- run: uv tool install oplx-tools
+- run: oplx lint plans/*.oplx   # CRITICAL findings exit non-zero, fail the build
+```
+
+Catches silent-corruption patterns the moment they're committed (uppercase `<type>`, lowercase `kind=`, `units="0"`, orphaned tasks not reachable from `<top-task>`). See [silent-corruption catalog](https://github.com/johntrandall/oplx-format/blob/main/spec/silent-corruption.md).
+
+### 3. Bulk-edit existing files without touching OmniPlan
+
+Read in, mutate, write out:
+
+```python
+from oplx import parse, generate
+from oplx.models import TaskType
+
+doc = parse("project.oplx")
+for task in doc.actual.tasks:
+    if "[milestone]" in task.title:
+        task.type = TaskType.MILESTONE
+        task.title = task.title.replace("[milestone]", "").strip()
+generate(doc, "project-fixed.oplx")
+```
+
+Works on a stack of files in a loop. No GUI thrash, no per-file dialog acceptance.
+
+### 4. Parse for downstream BI / ETL
+
+OmniPlan's CSV export is lossy (no dependency kinds, no constraint dates, no custom data types). The XML form preserves everything:
+
+```python
+from oplx import parse
+
+doc = parse("project.oplx")
+total_effort = sum(t.effort or 0 for t in doc.actual.tasks)
+critical_path = [t for t in doc.actual.tasks if t.total_slack == 0]
+```
+
+Pipe into your warehouse, dashboard, or Slack digest.
+
+### 5. Generate baselines programmatically
+
+The OmniPlan UI's "Set Baseline" button has no API equivalent in OmniPlan's AppleScript dictionary or Omni Automation surface. `oplx generate` (with the `Project.baselines=` field) creates a multi-scenario doc directly — useful for capturing weekly snapshots automatically without UI clicking.
+
+### 6. Agent-driven workflows
+
+With the [Claude Code lint hook](#full-install-cli--claude-code-lint-hook) installed, agents can read/create/edit `.oplx` files freely; any silent-corruption pattern they introduce is immediately surfaced in their next turn so they self-correct. This composes naturally with [omniplan-mcp](https://github.com/johntrandall/omniplan-mcp) when the live app is also available — the MCP for runtime queries, this repo for file mutation.
 
 ## Status
 
@@ -39,31 +119,46 @@ uv tool install ~/dev/oplx-tools
 
 ### Full install (CLI + Claude Code lint hook)
 
-The `lash.json` manifest in this repo installs the CLI **and** registers a Claude Code `PostToolUse` hook that auto-lints any `.oplx` bundle when an agent edits a file inside it. Findings appear in the agent's next turn so it can self-correct silent-corruption patterns.
+If you're using Claude Code (or any tool with the same `PostToolUse` hook surface) and you want **agents to be auto-corrected the moment they introduce a silent-corruption pattern**, install via [**lash**](https://github.com/johntrandall/lash) — a tiny manifest-driven installer.
+
+`lash install` reads the `lash.json` manifest in this repo and:
+
+1. Installs the `oplx` CLI (`uv tool install`).
+2. Symlinks `hooks/oplx-lint.sh` → `~/.claude/hooks/oplx-lint.sh`.
+3. Patches `~/.claude/settings.json` with a `PostToolUse` `Edit|Write|MultiEdit` block that runs the hook.
 
 ```bash
-# One-time prerequisite (zero-dep Python script):
-uv tool install lash-installer     # once on PyPI; for now: git+https://github.com/johntrandall/lash
+# One-time prerequisite — zero-dep installer (single Python script):
+uv tool install lash-installer
+# Or from a clone:  uv tool install git+https://github.com/johntrandall/lash
 
-# Then from this repo:
+# Clone this repo and install:
+git clone https://github.com/johntrandall/oplx-tools ~/dev/oplx-tools
 cd ~/dev/oplx-tools
-lash install                       # runs `uv tool install`, symlinks the hook, registers in settings.json
+lash install                       # runs all 3 operations above
 ```
 
-`lash install` is idempotent. Re-run after `git pull` to refresh.
+After install, **restart Claude Code** (or open `/hooks` once) so the settings watcher picks up the new entry.
 
-To verify or back out:
+`lash install` is idempotent — re-run safely after `git pull` to refresh. See [lash README](https://github.com/johntrandall/lash) for full manifest semantics.
 
 ```bash
 lash status                        # see what's installed
-lash uninstall                     # reverse all operations
+lash uninstall                     # reverse all operations cleanly
 ```
 
 ### What the hook does
 
-The `oplx-lint.sh` hook fires after `Edit`/`Write`/`MultiEdit` if the file path is inside an `.oplx` directory bundle. It runs `oplx lint <bundle>` and emits findings to stderr (non-blocking — exits 0 even on findings; the agent reads them in the next turn). See `hooks/oplx-lint.sh`.
+The `oplx-lint.sh` hook fires after `Edit`/`Write`/`MultiEdit` when the file path resolves to inside an `.oplx` directory bundle. It runs `oplx lint <bundle>` on that bundle and emits any findings to stderr — **non-blocking** (exits 0 even on findings; the agent sees them in the next turn and decides whether to self-correct).
 
-To disable the hook without uninstalling the CLI: edit `~/.claude/settings.json` and remove the `Edit|Write|MultiEdit` block whose hook command ends in `oplx-lint.sh`. Or just `lash uninstall && uv tool install ~/dev/oplx-tools` to keep the CLI without the hook.
+Severity tiers (from [silent-corruption.md](https://github.com/johntrandall/oplx-format/blob/main/spec/silent-corruption.md)):
+
+- **CRITICAL** — file-level rejection (e.g., `<type>MILESTONE</type>` uppercase silently makes OmniPlan refuse to open the doc)
+- **HIGH** — content silently dropped on save (e.g., orphaned tasks, `units="0"` deleting an assignment)
+- **MEDIUM** — value normalized to default (e.g., `<recalculate>none</recalculate>` → `duration`)
+- **LOW** — cosmetic / metadata
+
+To disable the hook without uninstalling the CLI: `lash uninstall && uv tool install oplx-tools`.
 
 ## Quick examples
 
