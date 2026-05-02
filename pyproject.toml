@@ -31,9 +31,9 @@ dev = ["pytest>=8.0", "pytest-cov", "ruff", "mypy"]
 oplx = "oplx.cli:main"
 
 [project.urls]
-Spec = "https://github.com/USER/oplx-format"
-Source = "https://github.com/USER/oplx-tools"
-Issues = "https://github.com/USER/oplx-tools/issues"
+Spec = "https://github.com/johntrandall/oplx-format"
+Source = "https://github.com/johntrandall/oplx-tools"
+Issues = "https://github.com/johntrandall/oplx-tools/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/oplx"]

@@ -1,6 +1,6 @@
 # oplx-tools
 
-**Python tooling for OmniPlan `.oplx` documents.** Companion to [`oplx-format`](https://github.com/USER/oplx-format) (the file-format specification).
+**Python tooling for OmniPlan `.oplx` documents.** Companion to [`oplx-format`](https://github.com/johntrandall/oplx-format) (the file-format specification).
 
 > **Naming note**: `oplx` is the file extension OmniPlan uses (`.oplx`). This project is **not** related to Yamaha OPL audio synthesis chips (OPL2/OPL3/OPL4) which share a similar string in some retro-audio communities.
 
@@ -43,7 +43,7 @@ The `lash.json` manifest in this repo installs the CLI **and** registers a Claud
 
 ```bash
 # One-time prerequisite (zero-dep Python script):
-uv tool install lash               # once on PyPI; for now: git+https://github.com/USER/lash
+uv tool install lash               # once on PyPI; for now: git+https://github.com/johntrandall/lash
 
 # Then from this repo:
 cd ~/dev/oplx-tools

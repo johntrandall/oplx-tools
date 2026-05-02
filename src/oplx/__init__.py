@@ -1,6 +1,6 @@
 """oplx-tools: generate, lint, and parse OmniPlan .oplx files.
 
-See https://github.com/USER/oplx-format for the spec this implements.
+See https://github.com/johntrandall/oplx-format for the spec this implements.
 """
 
 from .generate import generate

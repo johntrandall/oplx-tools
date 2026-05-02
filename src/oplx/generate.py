@@ -2,7 +2,7 @@
 
 Produces the zip variant by default. Pass `bundle=True` to produce a directory bundle.
 
-The generated XML matches the spec at https://github.com/USER/oplx-format,
+The generated XML matches the spec at https://github.com/johntrandall/oplx-format,
 verified against OmniPlan 4.10.2.
 """
 
