@@ -29,19 +29,41 @@ The spec lives in a separate repo (`oplx-format`) so it can be referenced by too
 
 ## Install
 
-```bash
-uv tool install oplx-tools
-# or:
-pipx install oplx-tools
-```
-
-(Not yet on PyPI — install from source for now.)
+### Quick install (CLI only)
 
 ```bash
-git clone https://github.com/USER/oplx-tools
-cd oplx-tools
-uv pip install -e .
+uv tool install oplx-tools     # once on PyPI; not yet
+# Or from a local clone:
+uv tool install ~/dev/oplx-tools
 ```
+
+### Full install (CLI + Claude Code lint hook)
+
+The `lash.json` manifest in this repo installs the CLI **and** registers a Claude Code `PostToolUse` hook that auto-lints any `.oplx` bundle when an agent edits a file inside it. Findings appear in the agent's next turn so it can self-correct silent-corruption patterns.
+
+```bash
+# One-time prerequisite (zero-dep Python script):
+uv tool install lash               # once on PyPI; for now: git+https://github.com/USER/lash
+
+# Then from this repo:
+cd ~/dev/oplx-tools
+lash install                       # runs `uv tool install`, symlinks the hook, registers in settings.json
+```
+
+`lash install` is idempotent. Re-run after `git pull` to refresh.
+
+To verify or back out:
+
+```bash
+lash status                        # see what's installed
+lash uninstall                     # reverse all operations
+```
+
+### What the hook does
+
+The `oplx-lint.sh` hook fires after `Edit`/`Write`/`MultiEdit` if the file path is inside an `.oplx` directory bundle. It runs `oplx lint <bundle>` and emits findings to stderr (non-blocking — exits 0 even on findings; the agent reads them in the next turn). See `hooks/oplx-lint.sh`.
+
+To disable the hook without uninstalling the CLI: edit `~/.claude/settings.json` and remove the `Edit|Write|MultiEdit` block whose hook command ends in `oplx-lint.sh`. Or just `lash uninstall && uv tool install ~/dev/oplx-tools` to keep the CLI without the hook.
 
 ## Quick examples
 

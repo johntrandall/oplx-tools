@@ -1,0 +1,36 @@
+{
+  "name": "oplx-tools",
+  "description": "OmniPlan .oplx generate/lint/parse — installs CLI + Claude Code lint hook",
+  "operations": [
+    {
+      "type": "shell",
+      "install": "uv tool install --force --reinstall .",
+      "uninstall": "uv tool uninstall oplx-tools || true",
+      "status": "command -v oplx >/dev/null"
+    },
+    {
+      "type": "symlink",
+      "src": "./hooks/oplx-lint.sh",
+      "dest": "~/.claude/hooks/oplx-lint.sh",
+      "chmod": "+x"
+    },
+    {
+      "type": "json_merge",
+      "file": "~/.claude/settings.json",
+      "path": "hooks.PostToolUse",
+      "action": "append_unique",
+      "match_key": "matcher",
+      "value": {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/oplx-lint.sh",
+            "timeout": 10,
+            "statusMessage": "Linting .oplx..."
+          }
+        ]
+      }
+    }
+  ]
+}
