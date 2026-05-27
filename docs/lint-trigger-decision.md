@@ -10,15 +10,17 @@ The hook fires on every agent write whose path touches an `.oplx` bundle (the ho
 
 ## What the lint catches
 
-This is governed entirely by the silent-corruption catalog. Quoting the codes the implementation emits (see [`src/oplx/lint.py`](../src/oplx/lint.py)):
+Most codes mirror the silent-corruption catalog (`~/dev/oplx-format/spec/silent-corruption.md`) and inherit severity tiers from it. Bundle-structure codes (`MISSING-TOC`, `MISSING-ACTUAL`, `MISSING-CHANGELOG`, `MISSING-BASELINE-FILE`, `ROOT-TASK-MISSING`, `FILE-NOT-FOUND`) are local lint-impl assignments — the spec defines severities for content-level corruption, not for malformed bundle structure, so those tiers are chosen here in [`src/oplx/lint.py`](../src/oplx/lint.py).
 
 | Code | Severity | OmniPlan behavior if it ships |
 | --- | --- | --- |
 | `TYPE-CASE` | CRITICAL | Document refuses to open. Silent. |
-| `MISSING-TOC`, `MISSING-ACTUAL`, `MISSING-CHANGELOG` | CRITICAL | Document refuses to open. |
+| `MISSING-TOC`, `MISSING-ACTUAL`, `MISSING-CHANGELOG` | CRITICAL | Document refuses to open (lint-impl assignment). |
+| `FILE-NOT-FOUND` | CRITICAL | Path does not exist (lint-impl assignment). |
 | `UNITS-ZERO` | HIGH | Assignment dropped on next save. |
 | `ORPHANED-TASK` | HIGH | Task dropped on next save. |
-| `ROOT-TASK-MISSING` | HIGH | Document structurally broken. |
+| `ROOT-TASK-MISSING` | HIGH | Document structurally broken (lint-impl assignment). |
+| `MISSING-BASELINE-FILE` | HIGH | `__TOC.xml` references a baseline file that isn't in the bundle (lint-impl assignment). |
 | `DEP-KIND-CASE` | MEDIUM | Dependency degrades to Finish-Start. |
 | `RECALCULATE-INVALID` | MEDIUM | Field normalizes to `duration`. |
 | `TYPE-INVALID`, `RESOURCE-TYPE-INVALID` | MEDIUM | Field normalizes to default. |
@@ -51,7 +53,7 @@ This decision is **catalog-specific**. The corruption codes are mostly *file-lev
 
 The hook emits a `PostToolUse` JSON envelope. `hookSpecificOutput.additionalContext` is appended to the conversation immediately after the tool result, marked as advisory. The Edit/Write is **not** reverted; the agent decides whether to follow up.
 
-If `oplx lint` exits 0 (clean), the hook stays silent — no envelope, no noise on clean edits.
+If `oplx lint` exits 0 (zero findings of any severity), the hook stays silent — no envelope, no noise on clean edits. Any finding — CRITICAL, HIGH, or MEDIUM — causes `oplx lint` to exit non-zero and the hook to emit the envelope; severities exist for prioritization, not for gating visibility.
 
 ## Pointers
 

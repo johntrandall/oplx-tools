@@ -160,7 +160,7 @@ lash uninstall                     # reverse all operations cleanly
 
 ### What the hook does
 
-The `oplx-lint.sh` hook fires after `Edit`/`Write`/`MultiEdit` when the file path resolves to inside an `.oplx` directory bundle. It runs `oplx lint <bundle>` on that bundle and emits any findings to stderr — **non-blocking** (exits 0 even on findings; the agent sees them in the next turn and decides whether to self-correct).
+The `oplx-lint.sh` hook fires after `Edit`/`Write`/`MultiEdit` when the file path resolves to inside an `.oplx` directory bundle. It runs `oplx lint <bundle>` on that bundle and — if any findings are produced — emits a `PostToolUse` JSON envelope to stdout whose `hookSpecificOutput.additionalContext` is appended to the conversation as advisory. **Non-blocking** — the Edit is not reverted; the agent sees the findings in the same turn and decides whether to self-correct.
 
 Severity tiers (from [silent-corruption.md](https://github.com/johntrandall/oplx-format/blob/main/spec/silent-corruption.md)):
 

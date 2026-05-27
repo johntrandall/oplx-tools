@@ -25,17 +25,20 @@ except Exception:
 ' 2>/dev/null)"
 
 [[ -z "$file_path" ]] && exit 0
-[[ "$file_path" != *".oplx"* ]] && exit 0
 
+# Walk parents looking for an ancestor whose basename ends in exactly `.oplx`
+# (not `.oplxbackup`, `.oplx.tmp`, etc.). The bundle is either a file (zip
+# variant) or a directory (bundle variant); both have basename `*.oplx`.
 bundle="$file_path"
-while [[ "$bundle" != "/" && "$bundle" != "" ]]; do
-  if [[ "$bundle" == *.oplx ]]; then
+while [[ "$bundle" != "/" && "$bundle" != "" && "$bundle" != "." ]]; do
+  base="${bundle##*/}"
+  if [[ "$base" == *.oplx ]]; then
     break
   fi
   bundle="$(dirname "$bundle")"
 done
 
-[[ "$bundle" == "/" || "$bundle" == "" ]] && exit 0
+[[ "$bundle" == "/" || "$bundle" == "" || "$bundle" == "." ]] && exit 0
 [[ ! -e "$bundle" ]] && exit 0
 
 if ! command -v oplx >/dev/null 2>&1; then
