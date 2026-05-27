@@ -270,6 +270,38 @@ def test_orphan_exemption_is_exact_not_prefix(tmp_path: Path) -> None:
     )
 
 
+def test_t1_collision_flagged(tmp_path: Path) -> None:
+    """User task with id='t1' that's a subtask of an explicit (non-root) group
+    is silently dropped by OmniPlan. Lint should catch it HIGH.
+    """
+    body = (
+        _ok_task("t1")
+        + _ok_task("t2")
+        + _ok_task("t3")
+        + '  <task id="g1"><title>group</title><type>group</type>'
+        '<recalculate>duration</recalculate><static-cost>0</static-cost>'
+        '<child-task idref="t1"/><child-task idref="t2"/>'
+        '<child-task idref="t3"/></task>\n'
+    )
+    actual = _scenario('    <child-task idref="g1"/>', body)
+    out = _write_zip(tmp_path, actual)
+    findings = lint(out)
+    t1c = [f for f in findings if f.code == "T1-COLLISION"]
+    assert len(t1c) == 1, f"expected one T1-COLLISION, got {len(t1c)}"
+    assert t1c[0].severity == "HIGH"
+
+
+def test_t1_as_direct_child_of_root_not_flagged(tmp_path: Path) -> None:
+    """t1 as a direct child of the root t-1 is fine — that's how f02 works."""
+    actual = _scenario(
+        '    <child-task idref="t1"/>\n    <child-task idref="t2"/>',
+        _ok_task("t1") + _ok_task("t2"),
+    )
+    out = _write_zip(tmp_path, actual)
+    findings = lint(out)
+    assert not any(f.code == "T1-COLLISION" for f in findings)
+
+
 def test_dep_missing_flagged(tmp_path: Path) -> None:
     """A <prerequisite-task idref="X"/> pointing at a non-existent task X
     must be flagged HIGH — OmniPlan silently drops the dep on load and the

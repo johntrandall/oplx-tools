@@ -155,15 +155,42 @@ The golden subdirectory is keyed by `omniplan-<short-version>-build-<bundle-vers
 
 ---
 
-## Known generator bugs the suite surfaces
+## Generator bugs the suite surfaced (and now guards against)
 
-These were found by inspecting the initial baseline goldens — not failures vs goldens, but evidence in the goldens that OmniPlan doesn't see all the tasks we defined:
+The initial baseline run revealed an OmniPlan-reader bug that unit tests
+couldn't have caught:
 
-- **f07_group_with_subtasks**: defined 3 subtasks (Design, Code, Test); OmniPlan's CSV shows only 2 (Code, Test). Design is silently dropped. Likely cause: an interaction between the auto-created `t-1` root group and an explicit group containing user tasks — `_is_subtask_of_any` may incorrectly include or exclude subtasks.
+- **f07_group_with_subtasks** showed only 2 of 3 subtasks (Design dropped).
+- **f20_complex_real_world** showed only 1 of 9 tasks.
 
-- **f20_complex_real_world**: defined 9 tasks across groups + milestones; OmniPlan's CSV shows only 1 (the Kickoff milestone). Same suspected root cause as f07, amplified.
+Root cause (Verified 2026-05-27 against OmniPlan 4.10.2 build 232.5.0):
+when a user task with id `t1` is referenced from an explicit (non-root)
+group's `<child-task>` list, OmniPlan's reader silently drops it. The
+reader appears to strip the hyphen from root id `t-1` and then collides
+with user `t1`. Direct children of the auto-root `t-1` are unaffected
+(which is why f02_simple_chain — same `t1, t2, t3` IDs but no explicit
+group — works fine).
 
-Both are TODOs for the generator — track in `dev-docs/` or whatever the project convention becomes. The suite's job is to surface; the fix is elsewhere.
+Fix landed: f07 renumbered to start user tasks at `t2` (matching
+OmniPlan's own next-task-id-defaults-to-2 convention), and a new lint
+code `T1-COLLISION` (HIGH) catches the pattern at structural-lint time.
+SKILL pitfalls section documents the gotcha.
+
+**f20 still under-reports after the rename** — additional OmniPlan-reader
+bug(s) surface when the root-group has heterogeneous children (e.g. a
+milestone sibling to a group, or a milestone interleaved between
+tasks/groups). Minimal reproducer in the suite's commit history (look
+for `/tmp/f20-*.oplx`). Effects observed:
+- root children `[milestone, group(tasks)]` → only the milestone visible
+- root children `[group(tasks), milestone]` → only the group's subtree
+- root children `[milestone, task, milestone]` → only the first 2 visible
+- 3 flat siblings of the same type → all visible
+
+The suite captures OmniPlan's actual under-reporting in f20's CSV
+golden — any future fix in OmniPlan's reader will surface as a CSV diff
+and trigger a re-baseline. Until the bug is isolated and worked around
+(or fixed in OmniPlan), f20 documents the limitation rather than asserts
+a full-task-list golden.
 
 ---
 

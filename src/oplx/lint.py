@@ -200,6 +200,14 @@ def _lint_scenario(scenario: etree._Element, file_label: str) -> list[LintFindin
                 )
             )
 
+    # T1-collision check: a user task with id="t1" that's a subtask of an
+    # explicit group is silently dropped by OmniPlan's reader (Verified 2026-05-27
+    # against OmniPlan 4.10.2 build 232.5.0). The reader appears to strip the
+    # hyphen from root id "t-1" and then can't disambiguate from user "t1" when
+    # both are referenced inside a non-root group's <child-task> list. Direct
+    # children of the auto-root t-1 are unaffected.
+    findings.extend(_check_t1_collision(scenario, file_label))
+
     # Dangling-dependency check: every <prerequisite-task idref="X"/> must point
     # at a task that actually exists in this scenario. OmniPlan drops the dep
     # silently if the target id can't be resolved.
@@ -207,6 +215,38 @@ def _lint_scenario(scenario: etree._Element, file_label: str) -> list[LintFindin
 
     # Orphaned task check (every <task id="tN"> must be reachable from <top-task>)
     findings.extend(_check_task_reachability(scenario, file_label))
+
+    return findings
+
+
+def _check_t1_collision(
+    scenario: etree._Element, file_label: str
+) -> list[LintFinding]:
+    findings: list[LintFinding] = []
+
+    top_task = scenario.find(f"{{{NS}}}top-task")
+    root_id = top_task.get("idref") if top_task is not None else None
+
+    for t in scenario.findall(f"{{{NS}}}task"):
+        tid = t.get("id")
+        if tid == root_id:
+            continue  # the root group's own child-task list is exempt
+        for child in t.findall(f"{{{NS}}}child-task"):
+            if child.get("idref") == "t1":
+                findings.append(
+                    LintFinding(
+                        "HIGH",
+                        "T1-COLLISION",
+                        f'<task id={tid!r}> references <child-task idref="t1"/>. '
+                        f"OmniPlan silently drops user task `t1` when it's a "
+                        f"subtask of an explicit group (collides with root "
+                        f"`t-1` after the reader strips the hyphen). Fix by "
+                        f"renaming `t1` → `t2` (and adjusting all idrefs). "
+                        f"OmniPlan-saved files start user numbering at `t2` "
+                        f"(next-task-id defaults to 2) for this reason.",
+                        file_label,
+                    )
+                )
 
     return findings
 

@@ -22,6 +22,7 @@ Most codes mirror the silent-corruption catalog (`~/dev/oplx-format/spec/silent-
 | `ROOT-TASK-MISSING` | HIGH | Document structurally broken (lint-impl assignment). |
 | `MISSING-BASELINE-FILE` | HIGH | `__TOC.xml` references a baseline file that isn't in the bundle (lint-impl assignment). |
 | `DEP-MISSING` | HIGH | `<prerequisite-task idref="X"/>` points at a task that doesn't exist. OmniPlan silently drops the dep on load. |
+| `T1-COLLISION` | HIGH | User task `t1` referenced from a non-root group's `<child-task>` list. OmniPlan drops it (collides with root `t-1` after hyphen strip). |
 | `DEP-KIND-CASE` | MEDIUM | Dependency degrades to Finish-Start. |
 | `RECALCULATE-INVALID` | MEDIUM | Field normalizes to `duration`. |
 | `TYPE-INVALID`, `RESOURCE-TYPE-INVALID` | MEDIUM | Field normalizes to default. |
