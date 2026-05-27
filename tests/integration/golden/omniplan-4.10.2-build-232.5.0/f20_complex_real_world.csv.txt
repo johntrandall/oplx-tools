@@ -1,0 +1,2 @@
+WBS Number,Title,Start,End,Duration hours,Duration,Effort hours,Effort,Completed,Task Cost,Assigned,Planned Start,Start Variance,Planned End,End Variance,Start After,End Before,Prerequisites,Notes,Priority,Resources Cost,Total Task Cost
+1,Kickoff,"6/1/26, 1:00 PM","6/1/26, 1:00 PM",,,,,0%,,,,,,,,,,,,,

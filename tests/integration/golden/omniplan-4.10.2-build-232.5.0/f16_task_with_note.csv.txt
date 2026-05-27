@@ -1,0 +1,6 @@
+WBS Number,Title,Start,End,Duration hours,Duration,Effort hours,Effort,Completed,Task Cost,Assigned,Planned Start,Start Variance,Planned End,End Variance,Start After,End Before,Prerequisites,Notes,Priority,Resources Cost,Total Task Cost
+1,Annotated task,"6/1/26, 1:00 PM","6/1/26, 5:00 PM",4,4h,4,4h,0%,,,,,,,,,,"Requirements:
+  1. validate input
+  2. write output
+  3. cleanup
+See ticket TASK-42 for context.",0,,

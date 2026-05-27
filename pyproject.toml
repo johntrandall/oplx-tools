@@ -38,6 +38,11 @@ Issues = "https://github.com/johntrandall/oplx-tools/issues"
 [tool.hatch.build.targets.wheel]
 packages = ["src/oplx"]
 
+[tool.pytest.ini_options]
+markers = [
+    "integration: end-to-end tests that drive OmniPlan in a Tart VM (see tests/integration/README.md)",
+]
+
 [tool.ruff]
 target-version = "py311"
 line-length = 100

@@ -1,0 +1,26 @@
+Title
+
+Eﬀort
+
+1) Anchor
+
+4h
+
+2) FS-after-Anchor
+
+2h
+
+3) SS-with-Anchor
+
+2h
+
+4) FF-with-Anchor
+
+2h
+
+5) SF-with-Anchor
+
+2h
+
+Jun 202
+

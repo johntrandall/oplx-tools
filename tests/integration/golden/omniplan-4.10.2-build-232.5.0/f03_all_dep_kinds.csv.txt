@@ -1,0 +1,6 @@
+WBS Number,Title,Start,End,Duration hours,Duration,Effort hours,Effort,Completed,Task Cost,Assigned,Planned Start,Start Variance,Planned End,End Variance,Start After,End Before,Prerequisites,Notes,Priority,Resources Cost,Total Task Cost
+1,Anchor,"6/1/26, 1:00 PM","6/1/26, 5:00 PM",4,4h,4,4h,0%,,,,,,,,,,,0,,
+2,FS-after-Anchor,"6/2/26, 8:00 AM","6/2/26, 10:00 AM",2,2h,2,2h,0%,,,,,,,,,1,,0,,
+3,SS-with-Anchor,"6/1/26, 1:00 PM","6/1/26, 3:00 PM",2,2h,2,2h,0%,,,,,,,,,1SS,,0,,
+4,FF-with-Anchor,"6/1/26, 3:00 PM","6/1/26, 5:00 PM",2,2h,2,2h,0%,,,,,,,,,1FF,,0,,
+5,SF-with-Anchor,"6/1/26, 1:00 PM","6/1/26, 3:00 PM",2,2h,2,2h,0%,,,,,,,,,1SF,,0,,
