@@ -13,7 +13,7 @@ This repo is one of three working together:
 | 📖 [**oplx-format**](https://github.com/johntrandall/oplx-format) | The file-format **specification** (CC-BY-4.0) | Read this if you're writing any `.oplx` tool in any language |
 | 🐍 [**oplx-tools**](https://github.com/johntrandall/oplx-tools) (this repo) | **Python implementation**: generate / lint / parse — **no OmniPlan needed** | Headless `.oplx` workflows: CI/CD, batch generation, ETL |
 | 🤖 [**omniplan-mcp**](https://github.com/johntrandall/omniplan-mcp) | **MCP server** for live OmniPlan automation (requires OmniPlan running) | Conversational task management with Claude — "schedule a task tomorrow at 2pm" |
-| 📦 [**lash**](https://github.com/johntrandall/lash) | The installer used to wire `oplx-tools`'s lint hook into Claude Code | One-shot setup for the agent integration |
+| 📦 [**lash**](https://github.com/johntrandall/lash) (PyPI: `lash-installer`) | The installer used to wire `oplx-tools`'s lint hook into Claude Code | One-shot setup for the agent integration |
 
 **Picking between live MCP and headless oplx-tools:**
 
@@ -32,7 +32,7 @@ PRs that improve interop with existing libraries are welcome.
 - **`oplx lint`** — validate a `.oplx` (zip or directory) against the [format spec](https://github.com/johntrandall/oplx-format); catch silent-corruption patterns before they bite
 - **`oplx parse`** — extract tasks/resources/dependencies/assignments from an `.oplx` for downstream tools (BI, ETL, integrations)
 
-The spec lives in a separate repo ([`oplx-format`](https://github.com/johntrandall/oplx-format)) so it can be referenced by tool authors in any language. This repo is the Python reference implementation.
+The spec lives in a separate repo ([`oplx-format`](https://github.com/johntrandall/oplx-format)) so it can be referenced by tool authors in any language. This repo is the reference Python implementation for the spec's Verified-tier patterns.
 
 ## Use cases
 
@@ -160,14 +160,15 @@ lash uninstall                     # reverse all operations cleanly
 
 ### What the hook does
 
-The `oplx-lint.sh` hook fires after `Edit`/`Write`/`MultiEdit` when the file path resolves to inside an `.oplx` directory bundle. It runs `oplx lint <bundle>` on that bundle and — if any findings are produced — emits a `PostToolUse` JSON envelope to stdout whose `hookSpecificOutput.additionalContext` is appended to the conversation as advisory. **Non-blocking** — the Edit is not reverted; the agent sees the findings in the same turn and decides whether to self-correct.
+The `oplx-lint.sh` hook fires after `Edit`/`Write`/`MultiEdit` when the file path resolves to an `.oplx` bundle (directory variant or zip variant — the hook walks parents until it finds an ancestor whose basename ends in exactly `.oplx`). It runs `oplx lint <bundle>` on that bundle and — if any findings are produced — emits a `PostToolUse` JSON envelope to stdout whose `hookSpecificOutput.additionalContext` is appended to the conversation as advisory. **Non-blocking** — the Edit is not reverted; the agent sees the findings in the same turn and decides whether to self-correct.
 
 Severity tiers (from [silent-corruption.md](https://github.com/johntrandall/oplx-format/blob/main/spec/silent-corruption.md)):
 
 - **CRITICAL** — file-level rejection (e.g., `<type>MILESTONE</type>` uppercase silently makes OmniPlan refuse to open the doc)
 - **HIGH** — content silently dropped on save (e.g., orphaned tasks, `units="0"` deleting an assignment)
 - **MEDIUM** — value normalized to default (e.g., `<recalculate>none</recalculate>` → `duration`)
-- **LOW** — cosmetic / metadata
+
+(A `LOW` tier exists in the `Severity` type but the current lint emits no findings at that level — it's reserved for future cosmetic/metadata checks.)
 
 To disable the hook without uninstalling the CLI: `lash uninstall && uv tool install oplx-tools`.
 
