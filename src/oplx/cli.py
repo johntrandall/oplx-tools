@@ -29,9 +29,7 @@ def cmd_lint(args: argparse.Namespace) -> int:
         return 0
     for f in findings:
         print(f, file=sys.stderr)
-    # Exit non-zero if any CRITICAL or HIGH
-    has_blocker = any(f.severity in ("CRITICAL", "HIGH") for f in findings)
-    return 1 if has_blocker else 0
+    return 1
 
 
 def cmd_parse(args: argparse.Namespace) -> int:

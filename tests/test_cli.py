@@ -94,6 +94,51 @@ def test_cli_lint_blocker_returns_nonzero(
     assert rc == 1
 
 
+def test_cli_lint_medium_finding_returns_nonzero(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """A MEDIUM finding alone is enough to exit non-zero.
+
+    Severities exist for prioritization, not exit codes. This matches how
+    ruff/flake8/mypy behave — any finding fails the run. Lets the hook
+    surface MEDIUM normalizations (e.g., lowercase kind=) to the agent
+    instead of swallowing them silently.
+    """
+    import zipfile
+
+    NS = "http://www.omnigroup.com/namespace/OmniPlan/v2"
+    toc = f"""<?xml version="1.0" encoding="UTF-8"?>
+<omniplan xmlns="{NS}" file-format-version="3"><project>
+<next-task-id>2</next-task-id><next-resource-id>2</next-resource-id>
+<scenario id="med" name="Actual" filename="Actual.xml"/></project></omniplan>
+""".encode()
+    changelog = (
+        f'<?xml version="1.0" encoding="UTF-8"?>\n'
+        f'<changelog xmlns="{NS}"><version>4.0</version></changelog>'
+    ).encode()
+    # Only finding: <recalculate>none</recalculate> → MEDIUM RECALCULATE-INVALID
+    actual = f"""<?xml version="1.0" encoding="UTF-8"?>
+<scenario xmlns="{NS}" id="med">
+  <start-date>2026-06-01T13:00:00.000Z</start-date>
+  <top-resource idref="r-1"/>
+  <resource id="r-1"><name>Project</name><type>Project</type></resource>
+  <top-task idref="t-1"/>
+  <task id="t-1"><type>group</type><recalculate>duration</recalculate>
+    <static-cost>0</static-cost><child-task idref="t1"/></task>
+  <task id="t1"><title>t1</title><recalculate>none</recalculate>
+    <static-cost>0</static-cost></task>
+</scenario>
+""".encode()
+    out = tmp_path / "medium.oplx"
+    with zipfile.ZipFile(out, "w") as z:
+        z.writestr("__TOC.xml", toc)
+        z.writestr("__changelog.xml", changelog)
+        z.writestr("Actual.xml", actual)
+
+    monkeypatch.setattr("sys.argv", ["oplx", "lint", str(out)])
+    assert main() == 1
+
+
 def test_cli_parse_summary(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
