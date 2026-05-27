@@ -21,6 +21,7 @@ Most codes mirror the silent-corruption catalog (`~/dev/oplx-format/spec/silent-
 | `ORPHANED-TASK` | HIGH | Task dropped on next save. |
 | `ROOT-TASK-MISSING` | HIGH | Document structurally broken (lint-impl assignment). |
 | `MISSING-BASELINE-FILE` | HIGH | `__TOC.xml` references a baseline file that isn't in the bundle (lint-impl assignment). |
+| `DEP-MISSING` | HIGH | `<prerequisite-task idref="X"/>` points at a task that doesn't exist. OmniPlan silently drops the dep on load. |
 | `DEP-KIND-CASE` | MEDIUM | Dependency degrades to Finish-Start. |
 | `RECALCULATE-INVALID` | MEDIUM | Field normalizes to `duration`. |
 | `TYPE-INVALID`, `RESOURCE-TYPE-INVALID` | MEDIUM | Field normalizes to default. |
@@ -33,9 +34,9 @@ The trade-off is real for most linters. It is **not balanced** here.
 
 ### PostToolUse (chosen)
 
-- **Catches corruption at the keystroke that introduced it.** The agent sees the finding in the same turn as the Edit. The next iteration of the loop has the lint message in context and can fix the value before producing a downstream Write.
-- **Catches corruption in the working tree, not just at commit.** The corruption catalog is dominated by patterns that the agent doesn't realize are wrong. If the agent edits an `.oplx`, runs OmniPlan against it, and OmniPlan silently rejects the file, the next edit may already be writing on top of broken state. Earlier detection wins.
-- **Survives the "agent forgot to commit" case.** A lot of real `.oplx` work is iterative scratch (generate → open in OmniPlan → tweak → re-open). Commits may never happen, or may happen long after the corruption was introduced.
+- **Catches edits that never commit at all.** This is the strongest reason. A lot of real `.oplx` work is iterative scratch — generate, open in OmniPlan, tweak, re-open — that never reaches git. Test fixtures, throwaway scenarios, hand-built bundles to reproduce an OmniPlan bug. A pre-commit hook would see none of that. PostToolUse sees all of it.
+- **Catches corruption in the working tree before it propagates.** The corruption catalog is dominated by patterns that the agent doesn't realize are wrong. If the agent edits an `.oplx`, runs OmniPlan against it, and OmniPlan silently rejects the file, the next edit may already be writing on top of broken state. Earlier detection wins.
+- **Tightens the correction loop.** The agent sees the finding in the same turn as the Edit — the next iteration of the loop has the lint message already in context and can fix the value before producing a downstream Write. (Note: a commit-time hook could also surface findings to the same agent, just slower; the "agent has lost the thread" framing of this reason is the weakest of the three — don't lean on it.)
 - **No additional dependency on git state.** The bundle on disk is sufficient — no need to interrogate the index for what's being committed.
 
 ### Pre-commit (rejected)
