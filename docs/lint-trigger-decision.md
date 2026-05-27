@@ -1,0 +1,61 @@
+# Lint trigger decision: PostToolUse-on-edit, not pre-commit
+
+> **Status:** decided 2026-05-27. Implementation in [`hooks/oplx-lint.sh`](../hooks/oplx-lint.sh) and the `PostToolUse` block of [`lash.json`](../lash.json).
+
+## Decision
+
+`oplx lint` runs as a **Claude Code `PostToolUse` hook on `Edit | Write | MultiEdit`**, not as a git pre-commit hook.
+
+The hook fires on every agent write whose path touches an `.oplx` bundle (the hook resolves the bundle root by walking parents). Findings reach the calling agent via `hookSpecificOutput.additionalContext` — non-blocking, advisory.
+
+## What the lint catches
+
+This is governed entirely by the silent-corruption catalog. Quoting the codes the implementation emits (see [`src/oplx/lint.py`](../src/oplx/lint.py)):
+
+| Code | Severity | OmniPlan behavior if it ships |
+| --- | --- | --- |
+| `TYPE-CASE` | CRITICAL | Document refuses to open. Silent. |
+| `MISSING-TOC`, `MISSING-ACTUAL`, `MISSING-CHANGELOG` | CRITICAL | Document refuses to open. |
+| `UNITS-ZERO` | HIGH | Assignment dropped on next save. |
+| `ORPHANED-TASK` | HIGH | Task dropped on next save. |
+| `ROOT-TASK-MISSING` | HIGH | Document structurally broken. |
+| `DEP-KIND-CASE` | MEDIUM | Dependency degrades to Finish-Start. |
+| `RECALCULATE-INVALID` | MEDIUM | Field normalizes to `duration`. |
+| `TYPE-INVALID`, `RESOURCE-TYPE-INVALID` | MEDIUM | Field normalizes to default. |
+
+Full prose in [`~/dev/oplx-format/spec/silent-corruption.md`](../../oplx-format/spec/silent-corruption.md).
+
+## Why PostToolUse beats pre-commit for *this* catalog
+
+The trade-off is real for most linters. It is **not balanced** here.
+
+### PostToolUse (chosen)
+
+- **Catches corruption at the keystroke that introduced it.** The agent sees the finding in the same turn as the Edit. The next iteration of the loop has the lint message in context and can fix the value before producing a downstream Write.
+- **Catches corruption in the working tree, not just at commit.** The corruption catalog is dominated by patterns that the agent doesn't realize are wrong. If the agent edits an `.oplx`, runs OmniPlan against it, and OmniPlan silently rejects the file, the next edit may already be writing on top of broken state. Earlier detection wins.
+- **Survives the "agent forgot to commit" case.** A lot of real `.oplx` work is iterative scratch (generate → open in OmniPlan → tweak → re-open). Commits may never happen, or may happen long after the corruption was introduced.
+- **No additional dependency on git state.** The bundle on disk is sufficient — no need to interrogate the index for what's being committed.
+
+### Pre-commit (rejected)
+
+- Only fires on what's staged. Working-tree corruption that hasn't been staged yet is invisible.
+- Many `.oplx` edits never reach git at all (test fixtures, throwaway scenarios, hand-built bundles for reproducing OmniPlan bugs).
+- The corruption-to-feedback gap is N edits long, where N is however many edits the agent does before remembering to commit. With PostToolUse it's exactly one tool call.
+- Pre-commit can still be added later as a defense-in-depth layer, but it cannot replace the edit-time signal — it can only supplement it.
+
+## Why this argument doesn't generalize to all linters
+
+This decision is **catalog-specific**. The corruption codes are mostly *file-level rejection* (CRITICAL) and *silent content drop* (HIGH). Those failure modes are invisible until OmniPlan refuses the file, by which point the agent has lost the thread. For a linter whose findings are style-only (line length, import order), edit-time noise would outweigh the catch-rate benefit and pre-commit would be the right place. For this linter, the failures are silent and downstream — edit-time is the only window where the agent still has the context to fix the cause.
+
+## How agents see the findings
+
+The hook emits a `PostToolUse` JSON envelope. `hookSpecificOutput.additionalContext` is appended to the conversation immediately after the tool result, marked as advisory. The Edit/Write is **not** reverted; the agent decides whether to follow up.
+
+If `oplx lint` exits 0 (clean), the hook stays silent — no envelope, no noise on clean edits.
+
+## Pointers
+
+- Hook script: [`hooks/oplx-lint.sh`](../hooks/oplx-lint.sh)
+- Lint implementation: [`src/oplx/lint.py`](../src/oplx/lint.py)
+- Manifest wiring: [`lash.json`](../lash.json) (`PostToolUse` entry under `hooks`, matcher `Edit|Write|MultiEdit`)
+- Silent-corruption spec: `~/dev/oplx-format/spec/silent-corruption.md` (or the public mirror at github.com/johntrandall/oplx-format)
