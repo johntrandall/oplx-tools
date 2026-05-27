@@ -101,7 +101,9 @@ def lint(oplx_path: str | Path) -> list[LintFinding]:
                             LintFinding(
                                 "HIGH",
                                 "MISSING-BASELINE-FILE",
-                                f"__TOC.xml references {fn} but it's not in the bundle",
+                                f"__TOC.xml references {fn} but it's not in the bundle. "
+                                f"Fix by either adding the {fn} scenario file or removing "
+                                f"the <scenario filename={fn!r}/> entry from __TOC.xml.",
                             )
                         )
                     else:
@@ -230,7 +232,8 @@ def _check_dependency_targets(
                     f'<prerequisite-task idref="{idref}"/> points at a task that '
                     f"does not exist in this scenario. OmniPlan silently drops the "
                     f"dependency on load — the successor will schedule as if it had "
-                    f"no predecessor.",
+                    f"no predecessor. Fix by either adding a <task id={idref!r}/> "
+                    f"or removing the dangling <prerequisite-task/> element.",
                     file_label,
                 )
             )
@@ -263,7 +266,10 @@ def _check_task_reachability(
             LintFinding(
                 "HIGH",
                 "ROOT-TASK-MISSING",
-                f"<top-task idref={root_id}/> but no matching <task id={root_id}/>",
+                f"<top-task idref={root_id!r}/> but no matching <task id={root_id!r}/>. "
+                f"Fix by adding a <task id={root_id!r}> group element listing all "
+                f"top-level tasks as <child-task idref=.../> entries, or by changing "
+                f"<top-task idref/> to point at an existing task.",
                 file_label,
             )
         )
