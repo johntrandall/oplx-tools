@@ -1,14 +1,16 @@
 Title
 
 Eﬀort
+Jun 1
 
 1) Predecessor (8h)
 
 1d
 
-2) Successor after 25%
+2) Successor after
+25%
 
 2h
 
-Jun 2026
+Jun 2
 

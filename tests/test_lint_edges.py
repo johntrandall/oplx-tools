@@ -342,3 +342,96 @@ def test_lint_finding_str_includes_location() -> None:
     f = LintFinding("CRITICAL", "TYPE-CASE", "boom", "Actual.xml")
     s = str(f)
     assert "CRITICAL" in s and "TYPE-CASE" in s and "Actual.xml" in s
+
+
+def test_task_id_numbering_flags_non_t_id(tmp_path: Path) -> None:
+    """A user task id that doesn't match `t<digits>` (e.g. `m1`, `g1`, `gX`)
+    causes OmniPlan to silently drop sibling tasks. Lint should flag it HIGH.
+    """
+    body = (
+        _ok_task("t2")
+        + '  <task id="m1"><title>milestone</title><type>milestone</type>'
+        '<recalculate>duration</recalculate><static-cost>0</static-cost></task>\n'
+    )
+    actual = _scenario(
+        '    <child-task idref="t2"/>\n    <child-task idref="m1"/>',
+        body,
+    )
+    out = _write_zip(tmp_path, actual)
+    findings = lint(out)
+    ids = [f for f in findings if f.code == "TASK-ID-NUMBERING"]
+    assert len(ids) == 1, f"expected one TASK-ID-NUMBERING, got {len(ids)}"
+    assert ids[0].severity == "HIGH"
+    assert "'m1'" in ids[0].message
+
+
+def test_task_id_numbering_root_id_exempt(tmp_path: Path) -> None:
+    """The root group's own id (`t-1`) does NOT match `t<digits>` but is
+    by-design and must not be flagged.
+    """
+    actual = _scenario(
+        '    <child-task idref="t2"/>',
+        _ok_task("t2"),
+    )
+    out = _write_zip(tmp_path, actual)
+    findings = lint(out)
+    assert not any(f.code == "TASK-ID-NUMBERING" for f in findings)
+
+
+def test_task_id_numbering_t_numbered_ids_not_flagged(tmp_path: Path) -> None:
+    """All-t-numbered ids must not be flagged regardless of task type."""
+    body = (
+        _ok_task("t2")
+        + '  <task id="t3"><title>group</title><type>group</type>'
+        '<recalculate>duration</recalculate><static-cost>0</static-cost>'
+        '<child-task idref="t4"/></task>\n'
+        + _ok_task("t4")
+    )
+    actual = _scenario(
+        '    <child-task idref="t2"/>\n    <child-task idref="t3"/>',
+        body,
+    )
+    out = _write_zip(tmp_path, actual)
+    findings = lint(out)
+    assert not any(f.code == "TASK-ID-NUMBERING" for f in findings)
+
+
+def test_generator_emits_window_view_config(tmp_path: Path) -> None:
+    """The generator must emit a <window> block in __TOC.xml so OmniPlan's
+    gantt picks a usable zoom level. Without this, task bars render
+    sub-pixel and the gantt area appears blank.
+    """
+    import zipfile as _zip
+    from datetime import UTC, datetime
+
+    from lxml import etree as _etree
+
+    from oplx import Project, Scenario, Task, generate
+
+    proj = Project(
+        actual=Scenario(
+            id="window-test",
+            start_date=datetime(2026, 6, 1, 13, 0, tzinfo=UTC),
+            tasks=[Task(id="t1", title="Solo", effort=14400)],
+        )
+    )
+    out = tmp_path / "window.oplx"
+    generate(proj, out)
+
+    with _zip.ZipFile(out) as z:
+        toc_bytes = z.read("__TOC.xml")
+    root = _etree.fromstring(toc_bytes)
+    window = root.find(f"{{{NS}}}window")
+    assert window is not None, "<window> missing — gantt bars will render blank"
+
+    view = window.find(f"{{{NS}}}view")
+    assert view is not None and view.text == "task"
+
+    gantt = window.find(f"{{{NS}}}task-view/{{{NS}}}gantt-view")
+    assert gantt is not None
+    scales = gantt.findall(f"{{{NS}}}scale")
+    scale_names = [s.get("scale-name") for s in scales]
+    assert "Automatic" in scale_names
+    assert "Day" in scale_names
+    selected = [s for s in scales if s.find(f"{{{NS}}}selected") is not None]
+    assert len(selected) == 1 and selected[0].get("scale-name") == "Automatic"

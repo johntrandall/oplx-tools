@@ -6,6 +6,7 @@ units="0", orphaned tasks, etc.) before they reach OmniPlan.
 
 from __future__ import annotations
 
+import re
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -15,6 +16,8 @@ from lxml import etree
 
 NS = "http://www.omnigroup.com/namespace/OmniPlan/v2"
 NSMAP = {"opns": NS}
+
+TASK_ID_PATTERN = re.compile(r"^t\d+$")  # user-task id convention OmniPlan reads reliably
 
 Severity = Literal["CRITICAL", "HIGH", "MEDIUM", "LOW"]
 
@@ -208,6 +211,13 @@ def _lint_scenario(scenario: etree._Element, file_label: str) -> list[LintFindin
     # children of the auto-root t-1 are unaffected.
     findings.extend(_check_t1_collision(scenario, file_label))
 
+    # Task-id-numbering check: user task ids that don't match `t<digits>` (e.g.
+    # `m1`, `g1`, `gX`) trigger silent sibling drops in OmniPlan's reader.
+    # Verified 2026-05-27 against OmniPlan 4.10.2 build 232.5.0: when a non-
+    # t-numbered id appears as a direct child of the auto-root, sibling tasks
+    # that follow are silently omitted from the doc tree.
+    findings.extend(_check_task_id_numbering(scenario, file_label))
+
     # Dangling-dependency check: every <prerequisite-task idref="X"/> must point
     # at a task that actually exists in this scenario. OmniPlan drops the dep
     # silently if the target id can't be resolved.
@@ -247,6 +257,41 @@ def _check_t1_collision(
                         file_label,
                     )
                 )
+
+    return findings
+
+
+def _check_task_id_numbering(
+    scenario: etree._Element, file_label: str
+) -> list[LintFinding]:
+    """Flag user task ids that don't match the `t<digits>` convention.
+
+    OmniPlan's reader silently drops sibling tasks whose ids deviate from
+    this pattern. The root group's own id (typically `t-1`) is exempt.
+    """
+    findings: list[LintFinding] = []
+
+    top_task = scenario.find(f"{{{NS}}}top-task")
+    root_id = top_task.get("idref") if top_task is not None else None
+
+    for t in scenario.findall(f"{{{NS}}}task"):
+        tid = t.get("id")
+        if tid is None or tid == root_id:
+            continue
+        if not TASK_ID_PATTERN.match(tid):
+            findings.append(
+                LintFinding(
+                    "HIGH",
+                    "TASK-ID-NUMBERING",
+                    f"<task id={tid!r}> uses an id that doesn't match the "
+                    f"`t<digits>` convention OmniPlan expects. OmniPlan's "
+                    f"reader silently drops sibling tasks when any sibling's "
+                    f"id deviates from this pattern. Fix by renaming to a "
+                    f"t-numbered id (e.g. `t2`, `t10`) and updating every "
+                    f"idref that points at it.",
+                    file_label,
+                )
+            )
 
     return findings
 

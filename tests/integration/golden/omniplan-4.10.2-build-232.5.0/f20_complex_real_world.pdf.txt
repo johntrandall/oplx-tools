@@ -6,5 +6,23 @@ Eﬀort
 
 0h
 
-Jun 202
+2) Design phase
+
+1d 4h
+
+3) Build phase
+
+2d 4h
+
+4) Ship
+
+0h
+
+Jun 1
+
+Jun 2
+
+Jun 3
+
+Jun 4
 

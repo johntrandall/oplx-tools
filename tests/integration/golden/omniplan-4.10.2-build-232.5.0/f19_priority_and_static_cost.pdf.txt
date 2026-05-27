@@ -1,8 +1,8 @@
 Title
-1) Expensive priority task
+1) Expensive priority
+task
 
 Eﬀort
+Jun 1
 4h
-
-Jun 202
 

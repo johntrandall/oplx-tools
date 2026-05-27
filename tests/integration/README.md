@@ -176,21 +176,28 @@ OmniPlan's own next-task-id-defaults-to-2 convention), and a new lint
 code `T1-COLLISION` (HIGH) catches the pattern at structural-lint time.
 SKILL pitfalls section documents the gotcha.
 
-**f20 still under-reports after the rename** — additional OmniPlan-reader
-bug(s) surface when the root-group has heterogeneous children (e.g. a
-milestone sibling to a group, or a milestone interleaved between
-tasks/groups). Minimal reproducer in the suite's commit history (look
-for `/tmp/f20-*.oplx`). Effects observed:
-- root children `[milestone, group(tasks)]` → only the milestone visible
-- root children `[group(tasks), milestone]` → only the group's subtree
-- root children `[milestone, task, milestone]` → only the first 2 visible
-- 3 flat siblings of the same type → all visible
+**Update 2026-05-27** — the residual f20 under-reporting was isolated
+to a second OmniPlan-reader bug: **task ids must match `t<digits>`**.
+When any sibling task carries an id like `m1`, `g1`, or `gX`, OmniPlan
+silently drops subsequent siblings from the rendered tree. The original
+"heterogeneous root-group children" framing was coincidental — f20
+happened to use `m1`/`g1`/`m2`/`g2` ids that triggered the bug.
 
-The suite captures OmniPlan's actual under-reporting in f20's CSV
-golden — any future fix in OmniPlan's reader will surface as a CSV diff
-and trigger a re-baseline. Until the bug is isolated and worked around
-(or fixed in OmniPlan), f20 documents the limitation rather than asserts
-a full-task-list golden.
+Fix landed: f20 fixture renamed to use t-numbered ids throughout
+(`m1`→`t2`, `g1`→`t3`, `t2`→`t4`, etc.), and a new lint code
+`TASK-ID-NUMBERING` (HIGH) flags any non-conforming user-task id.
+SKILL pitfalls section documents the gotcha. f20's rebaselined CSV
+golden now lists all 9 tasks (Kickoff, Design phase, Architecture,
+Schema review, Build phase, Implementation, Test pass, Ship); the PNG
+shows all 4 top-level bars + arrows.
+
+**Third bug surfaced and fixed in the same session:** all integration
+PNGs initially rendered with empty gantt areas because the generator
+omitted the `<window>` view-config block in `__TOC.xml`. The spec says
+`<window>` is optional, but OmniPlan's runtime fallback for gantt zoom
+compresses the visible range so much that task bars become sub-pixel.
+The generator now emits a minimal `<window>` with the standard 8-scale
+table; bars and dependency arrows render correctly.
 
 ---
 

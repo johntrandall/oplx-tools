@@ -6,7 +6,10 @@ fixtures miss. If this opens cleanly and matches its golden, the
 overall pipeline is healthy.
 
 Note: user task ids start at `t2`, not `t1` — see f07 docstring for
-the OmniPlan-reader collision rationale.
+the OmniPlan-reader collision rationale. All ids follow the t<digits>
+convention required by lint code `TASK-ID-NUMBERING` (Verified
+2026-05-27: non-conforming ids like `m1`/`g1` cause OmniPlan to
+silently drop sibling tasks from the rendered tree).
 """
 
 from decimal import Decimal
@@ -61,45 +64,45 @@ def build() -> Project:
         end_date=utc(2026, 7, 1, 17, 0),
         resources=[alice, bob, aws],
         tasks=[
-            Task(id="m1", title="Kickoff", type=TaskType.MILESTONE),
-            Task(
-                id="g1",
-                title="Design phase",
-                type=TaskType.GROUP,
-                subtask_ids=["t2", "t3"],
-            ),
-            Task(
-                id="t2",
-                title="Architecture",
-                effort=28800,
-                priority=8,
-                static_cost=Decimal("500.00"),
-                note=Note(text="ADR template required."),
-                prerequisites=[Dependency(idref="m1")],
-                assignments=[Assignment(resource_idref="r2")],
-            ),
+            Task(id="t2", title="Kickoff", type=TaskType.MILESTONE),
             Task(
                 id="t3",
-                title="Schema review",
-                effort=14400,
-                prerequisites=[
-                    Dependency(idref="t2", kind=DependencyKind.START_START,
-                               lead_time=LeadTime(seconds=3600)),
-                ],
-                assignments=[Assignment(resource_idref="r3", units=Decimal("0.5"))],
-            ),
-            Task(
-                id="g2",
-                title="Build phase",
+                title="Design phase",
                 type=TaskType.GROUP,
                 subtask_ids=["t4", "t5"],
             ),
             Task(
                 id="t4",
+                title="Architecture",
+                effort=28800,
+                priority=8,
+                static_cost=Decimal("500.00"),
+                note=Note(text="ADR template required."),
+                prerequisites=[Dependency(idref="t2")],
+                assignments=[Assignment(resource_idref="r2")],
+            ),
+            Task(
+                id="t5",
+                title="Schema review",
+                effort=14400,
+                prerequisites=[
+                    Dependency(idref="t4", kind=DependencyKind.START_START,
+                               lead_time=LeadTime(seconds=3600)),
+                ],
+                assignments=[Assignment(resource_idref="r3", units=Decimal("0.5"))],
+            ),
+            Task(
+                id="t6",
+                title="Build phase",
+                type=TaskType.GROUP,
+                subtask_ids=["t7", "t8"],
+            ),
+            Task(
+                id="t7",
                 title="Implementation",
                 effort=57600,
                 recalculate=Recalculate.EFFORT,
-                prerequisites=[Dependency(idref="g1")],
+                prerequisites=[Dependency(idref="t3")],
                 assignments=[
                     Assignment(resource_idref="r2"),
                     Assignment(resource_idref="r3"),
@@ -107,22 +110,22 @@ def build() -> Project:
                 ],
             ),
             Task(
-                id="t5",
+                id="t8",
                 title="Test pass",
                 effort=14400,
                 prerequisites=[
-                    Dependency(idref="t4", kind=DependencyKind.FINISH_FINISH),
+                    Dependency(idref="t7", kind=DependencyKind.FINISH_FINISH),
                 ],
                 start_no_earlier_than=utc(2026, 6, 20, 9, 0),
                 assignments=[Assignment(resource_idref="r3")],
             ),
             Task(
-                id="m2",
+                id="t9",
                 title="Ship",
                 type=TaskType.MILESTONE,
                 prerequisites=[
-                    Dependency(idref="t5"),
-                    Dependency(idref="t4", kind=DependencyKind.FINISH_FINISH),
+                    Dependency(idref="t8"),
+                    Dependency(idref="t7", kind=DependencyKind.FINISH_FINISH),
                 ],
             ),
         ],

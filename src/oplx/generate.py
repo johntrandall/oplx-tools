@@ -332,12 +332,53 @@ def _is_subtask_of_any(task_id: str, scenario: Scenario) -> bool:
     return any(task_id in t.subtask_ids for t in scenario.tasks)
 
 
+_GANTT_SCALES = (
+    # (scale-name, full-day-width). Values copied from OmniPlan-saved files
+    # (with-baseline.oplx etc.). Without these, OmniPlan's gantt zoom default
+    # compresses the visible range so short task bars render sub-pixel.
+    ("Automatic", "300"),
+    ("Day", "1215"),
+    ("Hour", "65880"),
+    ("Minute", "64800"),
+    ("Month", "34.5"),
+    ("Quarter", "9.6"),
+    ("Week", "162"),
+    ("Year", "2.3625"),
+)
+
+
+def _build_window(root: etree._Element) -> None:
+    """Emit a minimal <window> view-config so the gantt actually renders bars.
+
+    Spec says <window> is optional. In practice OmniPlan's runtime fallback
+    for gantt zoom (when <window> is absent) compresses the visible time
+    range so much that hour/day-scale task bars become sub-pixel and the
+    gantt area renders blank. Emitting <task-view><gantt-view><scale .../>>
+    with the standard 8-scale table makes Automatic zoom pick a usable
+    full-day-width. Verified 2026-05-27 against OmniPlan 4.10.2.
+    """
+    window = etree.SubElement(root, "window")
+    etree.SubElement(window, "view").text = "task"
+    task_view = etree.SubElement(window, "task-view")
+    gantt_view = etree.SubElement(task_view, "gantt-view")
+    etree.SubElement(gantt_view, "view-mode").text = "actual"
+    for name, width in _GANTT_SCALES:
+        scale = etree.SubElement(
+            gantt_view,
+            "scale",
+            attrib={"scale-name": name, "full-day-width": width},
+        )
+        if name == "Automatic":
+            etree.SubElement(scale, "selected")
+
+
 def _build_toc(project: Project) -> bytes:
     root = etree.Element(
         "omniplan",
         attrib={"file-format-version": "3"},
         nsmap=NSMAP,
     )
+    _build_window(root)
     proj = etree.SubElement(root, "project")
     etree.SubElement(proj, "next-task-id").text = str(project.next_task_id)
     etree.SubElement(proj, "next-resource-id").text = str(project.next_resource_id)

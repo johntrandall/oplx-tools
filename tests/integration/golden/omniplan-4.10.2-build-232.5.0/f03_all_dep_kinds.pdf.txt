@@ -1,6 +1,7 @@
 Title
 
 Eﬀort
+Jun 1
 
 1) Anchor
 
@@ -21,6 +22,4 @@ Eﬀort
 5) SF-with-Anchor
 
 2h
-
-Jun 202
 
