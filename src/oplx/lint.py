@@ -198,8 +198,42 @@ def _lint_scenario(scenario: etree._Element, file_label: str) -> list[LintFindin
                 )
             )
 
+    # Dangling-dependency check: every <prerequisite-task idref="X"/> must point
+    # at a task that actually exists in this scenario. OmniPlan drops the dep
+    # silently if the target id can't be resolved.
+    findings.extend(_check_dependency_targets(scenario, file_label))
+
     # Orphaned task check (every <task id="tN"> must be reachable from <top-task>)
     findings.extend(_check_task_reachability(scenario, file_label))
+
+    return findings
+
+
+def _check_dependency_targets(
+    scenario: etree._Element, file_label: str
+) -> list[LintFinding]:
+    findings: list[LintFinding] = []
+
+    task_ids: set[str] = set()
+    for t in scenario.findall(f"{{{NS}}}task"):
+        tid = t.get("id")
+        if tid:
+            task_ids.add(tid)
+
+    for prereq in scenario.findall(f".//{{{NS}}}prerequisite-task"):
+        idref = prereq.get("idref")
+        if idref and idref not in task_ids:
+            findings.append(
+                LintFinding(
+                    "HIGH",
+                    "DEP-MISSING",
+                    f'<prerequisite-task idref="{idref}"/> points at a task that '
+                    f"does not exist in this scenario. OmniPlan silently drops the "
+                    f"dependency on load — the successor will schedule as if it had "
+                    f"no predecessor.",
+                    file_label,
+                )
+            )
 
     return findings
 
@@ -251,9 +285,13 @@ def _check_task_reachability(
             if child_id:
                 queue.append(child_id)
 
-    # Tasks defined but not reachable (excluding negative-id prototype/root tasks)
+    # Tasks defined but not reachable (excluding the well-known root task id)
+    # The exemption is exact-set, not a prefix — user-authored ids like `t-2`
+    # or `t-foo` still get orphan-checked. Only `t-1` (the OmniPlan-emitted
+    # root group) and the actual root-task id are exempt.
+    exempt_ids = {"t-1", root_id}
     for tid in all_tasks:
-        if tid not in reachable and not tid.startswith("t-"):
+        if tid not in reachable and tid not in exempt_ids:
             findings.append(
                 LintFinding(
                     "HIGH",

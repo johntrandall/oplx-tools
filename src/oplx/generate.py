@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import secrets
 import zipfile
-from datetime import datetime
+from datetime import datetime, timezone
 from io import StringIO
 from pathlib import Path
 from typing import Any
@@ -46,11 +46,14 @@ def _scenario_id() -> str:
 def _iso(dt: datetime) -> str:
     """Format a datetime in ISO-8601 UTC with milliseconds.
 
-    Required: input must be tz-aware UTC.
+    Input must be tz-aware. Non-UTC inputs are converted to UTC before
+    formatting — `datetime(13:00, tz=NYC)` serializes as `17:00Z`, not
+    `13:00Z`. Naive datetimes are rejected (raise ValueError) so callers
+    can't silently mis-stamp wall-clock-only times.
     """
     if dt.tzinfo is None:
-        raise ValueError(f"datetime must be tz-aware UTC, got naive: {dt}")
-    return dt.astimezone(dt.tzinfo).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+        raise ValueError(f"datetime must be tz-aware, got naive: {dt}")
+    return dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")
 
 
 def _build_note_xml(parent: etree._Element, note: Note) -> None:

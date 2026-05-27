@@ -45,6 +45,23 @@ def test_iso_rejects_naive_datetime() -> None:
         _iso(datetime(2026, 1, 1, 12, 0))  # noqa: DTZ001
 
 
+def test_iso_converts_non_utc_to_utc() -> None:
+    """A NYC 13:00 datetime must serialize as 18:00Z (EST) or 17:00Z (EDT),
+    not 13:00Z. Without UTC normalization the dt.astimezone(dt.tzinfo) was a
+    no-op and the file silently lied about the absolute instant.
+    """
+    from zoneinfo import ZoneInfo
+
+    nyc = ZoneInfo("America/New_York")
+    # June 1 is EDT (UTC-4), so 13:00 EDT = 17:00 UTC
+    result = _iso(datetime(2026, 6, 1, 13, 0, tzinfo=nyc))
+    assert result == "2026-06-01T17:00:00.000Z", result
+
+    # Same wall-clock in UTC stays as 13:00Z
+    result_utc = _iso(datetime(2026, 6, 1, 13, 0, tzinfo=UTC))
+    assert result_utc == "2026-06-01T13:00:00.000Z", result_utc
+
+
 def test_lead_time_rejects_both_seconds_and_fraction() -> None:
     with pytest.raises(ValueError):
         LeadTime(seconds=10, fraction=Decimal("0.1"))

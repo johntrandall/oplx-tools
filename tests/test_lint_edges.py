@@ -247,6 +247,65 @@ def test_root_task_missing_idref_target(tmp_path: Path) -> None:
     assert any(f.code == "ROOT-TASK-MISSING" for f in findings)
 
 
+def test_orphan_exemption_is_exact_not_prefix(tmp_path: Path) -> None:
+    """The orphan-exemption sentinel must be {t-1, root_id} exactly — not a
+    `startswith('t-')` prefix that would accidentally exempt user-authored
+    ids like `t-foo` or `t-2`.
+    """
+    # Root group references only t-1 (the canonical root), not t-orphan.
+    # t-orphan is a user-authored id starting with `t-` but should still be
+    # caught as orphaned.
+    body = (
+        _ok_task("t1")
+        + '  <task id="t-orphan"><title>tricky</title>'
+        '<recalculate>duration</recalculate>'
+        '<static-cost>0</static-cost></task>\n'
+    )
+    actual = _scenario('    <child-task idref="t1"/>', body)
+    out = _write_zip(tmp_path, actual)
+    findings = lint(out)
+    orphans = [f for f in findings if f.code == "ORPHANED-TASK"]
+    assert any("t-orphan" in f.message for f in orphans), (
+        "User-authored ids starting with 't-' must still be orphan-checked"
+    )
+
+
+def test_dep_missing_flagged(tmp_path: Path) -> None:
+    """A <prerequisite-task idref="X"/> pointing at a non-existent task X
+    must be flagged HIGH — OmniPlan silently drops the dep on load and the
+    successor schedules as if it had no predecessor.
+    """
+    # t1 has a prereq pointing at t-gone (which doesn't exist anywhere).
+    body = (
+        '  <task id="t1"><title>t1</title>'
+        '<recalculate>duration</recalculate><static-cost>0</static-cost>'
+        '<prerequisite-task idref="t-gone"/></task>\n'
+    )
+    actual = _scenario('    <child-task idref="t1"/>', body)
+    out = _write_zip(tmp_path, actual)
+    findings = lint(out)
+    dep_missing = [f for f in findings if f.code == "DEP-MISSING"]
+    assert len(dep_missing) == 1
+    assert dep_missing[0].severity == "HIGH"
+    assert "t-gone" in dep_missing[0].message
+
+
+def test_dep_present_not_flagged(tmp_path: Path) -> None:
+    """A prereq pointing at an existing task is clean."""
+    body = (
+        _ok_task("t1")
+        + '  <task id="t2"><title>t2</title>'
+        '<recalculate>duration</recalculate><static-cost>0</static-cost>'
+        '<prerequisite-task idref="t1"/></task>\n'
+    )
+    actual = _scenario(
+        '    <child-task idref="t1"/>\n    <child-task idref="t2"/>', body
+    )
+    out = _write_zip(tmp_path, actual)
+    findings = lint(out)
+    assert not any(f.code == "DEP-MISSING" for f in findings)
+
+
 def test_lint_finding_str_includes_location() -> None:
     f = LintFinding("CRITICAL", "TYPE-CASE", "boom", "Actual.xml")
     s = str(f)
