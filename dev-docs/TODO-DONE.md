@@ -54,9 +54,14 @@ Isolation matrix (root-group children):
 | `[t1(mile), gX(grp), t2]`   | t1+gX visible, t2 (sub) dropped |
 | `[m1, g1(t2)]` (all non-t)  | only m1 visible |
 | `[t1, t2(grp), t3(sub)]`    | all 3 visible   |
+| `[t0]` solo                 | t0 visible (degenerate) |
+| `[t0, t1, t2]`              | t0+t2 visible, t1 DROPPED |
+| `[t0, t1(grp), t2(sub)]`    | only t0 visible |
 
 The pattern: any non-t-numbered sibling triggers silent drops; using
-t-numbered IDs throughout makes all siblings visible.
+t-numbered IDs starting at `t1` makes all siblings visible. **`t0` is
+also broken** — verified 2026-05-28 in a verifier-driven follow-up
+probe. Lint regex tightened from `^t\d+$` to `^t[1-9]\d*$`.
 
 **Fix:**
 - Added lint code `TASK-ID-NUMBERING` (HIGH) that flags any user task

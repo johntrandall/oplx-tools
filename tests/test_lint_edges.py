@@ -396,6 +396,23 @@ def test_task_id_numbering_t_numbered_ids_not_flagged(tmp_path: Path) -> None:
     assert not any(f.code == "TASK-ID-NUMBERING" for f in findings)
 
 
+def test_task_id_numbering_t0_flagged(tmp_path: Path) -> None:
+    """`t0` is permitted by `^t\\d+$` but NOT by the tighter `^t[1-9]\\d*$`.
+    Verified 2026-05-27 against OmniPlan 4.10.2: a `t0` sibling causes
+    OmniPlan to silently drop other siblings (e.g. [t0, t1, t2] → only
+    t0 + t2 visible; t1 dropped). So `t0` must be flagged.
+    """
+    actual = _scenario(
+        '    <child-task idref="t0"/>',
+        _ok_task("t0"),
+    )
+    out = _write_zip(tmp_path, actual)
+    findings = lint(out)
+    ids = [f for f in findings if f.code == "TASK-ID-NUMBERING"]
+    assert len(ids) == 1, f"expected one TASK-ID-NUMBERING for t0, got {len(ids)}"
+    assert "'t0'" in ids[0].message
+
+
 def test_generator_emits_window_view_config(tmp_path: Path) -> None:
     """The generator must emit a <window> block in __TOC.xml so OmniPlan's
     gantt picks a usable zoom level. Without this, task bars render

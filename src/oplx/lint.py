@@ -17,7 +17,7 @@ from lxml import etree
 NS = "http://www.omnigroup.com/namespace/OmniPlan/v2"
 NSMAP = {"opns": NS}
 
-TASK_ID_PATTERN = re.compile(r"^t\d+$")  # user-task id convention OmniPlan reads reliably
+TASK_ID_PATTERN = re.compile(r"^t[1-9]\d*$")  # OmniPlan accepts t1+ only; t0 triggers sibling drops
 
 Severity = Literal["CRITICAL", "HIGH", "MEDIUM", "LOW"]
 
