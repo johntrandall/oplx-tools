@@ -24,6 +24,8 @@ Most codes mirror the silent-corruption catalog (`~/dev/oplx-format/spec/silent-
 | `DEP-MISSING` | HIGH | `<prerequisite-task idref="X"/>` points at a task that doesn't exist. OmniPlan silently drops the dep on load. |
 | `T1-COLLISION` | HIGH | User task `t1` referenced from a non-root group's `<child-task>` list. OmniPlan drops it (collides with root `t-1` after hyphen strip). |
 | `TASK-ID-NUMBERING` | HIGH | User task id doesn't match `^t[1-9]\d*$` (e.g. `m1`, `g1`, `gX`, `t0`). OmniPlan silently drops sibling tasks. |
+| `MISSING-WINDOW` | MEDIUM | `__TOC.xml` has no `<window>` view-config. OmniPlan opens the file but renders gantt bars sub-pixel. |
+| `WINDOW-SCALE-INVALID` | MEDIUM | `<scale full-day-width>` is 0, negative, or non-numeric. OmniPlan renders broken/empty at that zoom level. |
 | `DEP-KIND-CASE` | MEDIUM | Dependency degrades to Finish-Start. |
 | `RECALCULATE-INVALID` | MEDIUM | Field normalizes to `duration`. |
 | `TYPE-INVALID`, `RESOURCE-TYPE-INVALID` | MEDIUM | Field normalizes to default. |

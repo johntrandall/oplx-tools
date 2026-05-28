@@ -1,2 +1,2 @@
 WBS Number,Title,Start,End,Duration hours,Duration,Effort hours,Effort,Completed,Task Cost,Assigned,Planned Start,Start Variance,Planned End,End Variance,Start After,End Before,Prerequisites,Notes,Priority,Resources Cost,Total Task Cost
-1,Consulting engagement,"6/1/26, 1:00 PM","6/2/26, 12:00 PM",8,1d,8,1d,0%,,,,,,,,,,,0,,
+1,Consulting engagement,"6/1/26, 1:00 PM","6/2/26, 3:00 PM",10,1d 2h,8,1d,0%,,Senior consultant,,,,,,,,,0,"$3,000.00","$3,000.00"

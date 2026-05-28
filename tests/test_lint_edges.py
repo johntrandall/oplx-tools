@@ -396,6 +396,131 @@ def test_task_id_numbering_t_numbered_ids_not_flagged(tmp_path: Path) -> None:
     assert not any(f.code == "TASK-ID-NUMBERING" for f in findings)
 
 
+def test_missing_window_flagged(tmp_path: Path) -> None:
+    """A __TOC.xml without <window> renders blank gantt — lint MEDIUM."""
+    bare_toc = (
+        b'<?xml version="1.0" encoding="UTF-8"?>\n'
+        b'<omniplan xmlns="' + NS.encode() + b'" file-format-version="3">\n'
+        b'  <project>\n'
+        b'    <next-task-id>2</next-task-id>\n'
+        b'    <next-resource-id>2</next-resource-id>\n'
+        b'    <scenario id="t" name="Actual" filename="Actual.xml"/>\n'
+        b'  </project>\n'
+        b'</omniplan>\n'
+    )
+    actual = _scenario('    <child-task idref="t1"/>', _ok_task("t1"))
+    out = _write_zip(tmp_path, actual, toc=bare_toc)
+    findings = lint(out)
+    mw = [f for f in findings if f.code == "MISSING-WINDOW"]
+    assert len(mw) == 1, f"expected one MISSING-WINDOW, got {len(mw)}"
+    assert mw[0].severity == "MEDIUM"
+
+
+def test_window_scale_zero_flagged(tmp_path: Path) -> None:
+    """A <window> with full-day-width=0 on any scale renders broken — MEDIUM."""
+    bad_toc = (
+        b'<?xml version="1.0" encoding="UTF-8"?>\n'
+        b'<omniplan xmlns="' + NS.encode() + b'" file-format-version="3">\n'
+        b'  <window>\n'
+        b'    <view>task</view>\n'
+        b'    <task-view><gantt-view>\n'
+        b'      <view-mode>actual</view-mode>\n'
+        b'      <scale scale-name="Automatic" full-day-width="0"><selected/></scale>\n'
+        b'    </gantt-view></task-view>\n'
+        b'  </window>\n'
+        b'  <project>\n'
+        b'    <next-task-id>2</next-task-id>\n'
+        b'    <next-resource-id>2</next-resource-id>\n'
+        b'    <scenario id="t" name="Actual" filename="Actual.xml"/>\n'
+        b'  </project>\n'
+        b'</omniplan>\n'
+    )
+    actual = _scenario('    <child-task idref="t1"/>', _ok_task("t1"))
+    out = _write_zip(tmp_path, actual, toc=bad_toc)
+    findings = lint(out)
+    ws = [f for f in findings if f.code == "WINDOW-SCALE-INVALID"]
+    assert len(ws) == 1, f"expected one WINDOW-SCALE-INVALID, got {len(ws)}"
+    assert ws[0].severity == "MEDIUM"
+    assert "Automatic" in ws[0].message
+
+
+def test_window_scale_negative_flagged(tmp_path: Path) -> None:
+    """Negative full-day-width is also broken."""
+    bad_toc = (
+        b'<?xml version="1.0" encoding="UTF-8"?>\n'
+        b'<omniplan xmlns="' + NS.encode() + b'" file-format-version="3">\n'
+        b'  <window>\n'
+        b'    <task-view><gantt-view>\n'
+        b'      <scale scale-name="Day" full-day-width="-5"/>\n'
+        b'    </gantt-view></task-view>\n'
+        b'  </window>\n'
+        b'  <project><next-task-id>2</next-task-id>'
+        b'<next-resource-id>2</next-resource-id>'
+        b'<scenario id="t" name="Actual" filename="Actual.xml"/></project>\n'
+        b'</omniplan>\n'
+    )
+    actual = _scenario('    <child-task idref="t1"/>', _ok_task("t1"))
+    out = _write_zip(tmp_path, actual, toc=bad_toc)
+    findings = lint(out)
+    ws = [f for f in findings if f.code == "WINDOW-SCALE-INVALID"]
+    assert len(ws) == 1
+
+
+def test_window_present_no_finding(tmp_path: Path) -> None:
+    """A generator-emitted file (with <window> + sane scales) passes clean."""
+    from datetime import UTC, datetime as _dt
+
+    from oplx import Project, Scenario, Task, generate
+
+    proj = Project(actual=Scenario(
+        id="ok-window", start_date=_dt(2026, 6, 1, 13, 0, tzinfo=UTC),
+        tasks=[Task(id="t1", title="Solo", effort=14400)],
+    ))
+    out = tmp_path / "ok.oplx"
+    generate(proj, out)
+    findings = lint(out)
+    assert not any(f.code == "MISSING-WINDOW" for f in findings)
+    assert not any(f.code == "WINDOW-SCALE-INVALID" for f in findings)
+
+
+def test_root_resource_auto_populates_child_resource(tmp_path: Path) -> None:
+    """Without <child-resource> entries on r-1, OmniPlan silently drops every
+    resource. Generator must auto-populate the root resource's subresource_ids
+    with every top-level user resource. Verified 2026-05-28.
+    """
+    from datetime import UTC, datetime as _dt
+    import zipfile as _zip
+
+    from lxml import etree as _et
+
+    from oplx import Project, Resource, Scenario, Task, generate
+    from oplx.models import ResourceType
+
+    proj = Project(actual=Scenario(
+        id="r-test", start_date=_dt(2026, 6, 1, 13, 0, tzinfo=UTC),
+        resources=[
+            Resource(id="r1", name="Alice", type=ResourceType.STAFF),
+            Resource(id="r2", name="Bob", type=ResourceType.STAFF),
+        ],
+        tasks=[Task(id="t1", title="Solo", effort=14400)],
+    ))
+    out = tmp_path / "with-resources.oplx"
+    generate(proj, out)
+
+    with _zip.ZipFile(out) as z:
+        actual_xml = z.read("Actual.xml")
+    root = _et.fromstring(actual_xml)
+    r1_root = next(
+        r for r in root.findall(f"{{{NS}}}resource") if r.get("id") == "r-1"
+    )
+    child_idrefs = {
+        c.get("idref") for c in r1_root.findall(f"{{{NS}}}child-resource")
+    }
+    assert child_idrefs == {"r1", "r2"}, (
+        f"r-1 should list both user resources as <child-resource>, got {child_idrefs}"
+    )
+
+
 def test_task_id_numbering_t0_flagged(tmp_path: Path) -> None:
     """`t0` is permitted by `^t\\d+$` but NOT by the tighter `^t[1-9]\\d*$`.
     Verified 2026-05-27 against OmniPlan 4.10.2: a `t0` sibling causes

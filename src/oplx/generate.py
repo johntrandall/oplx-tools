@@ -143,6 +143,12 @@ def _build_resource(parent: etree._Element, r: Resource) -> None:
     if r.schedule:
         _build_resource_schedule(r_el, r.schedule)
 
+    # subresources (groups and the root resource MUST list their members here,
+    # or OmniPlan silently drops every resource from the doc tree). Verified
+    # 2026-05-28 against OmniPlan 4.10.2 build 232.5.0.
+    for sid in r.subresource_ids:
+        etree.SubElement(r_el, "child-resource", attrib={"idref": sid})
+
     # custom data
     _build_user_data(r_el, r.custom_data)
 
@@ -295,13 +301,30 @@ def _build_scenario(scenario: Scenario) -> bytes:
     root_resource = next(
         (r for r in scenario.resources if r.id == scenario.root_resource_id), None
     )
+    # Auto-populate the root resource's <child-resource> list with every
+    # top-level user resource — i.e. every user resource that isn't already
+    # a member of some other group resource's subresource_ids. Required:
+    # without these, OmniPlan silently drops every user resource on load.
+    explicitly_grouped = {
+        sid for r in scenario.resources for sid in r.subresource_ids
+    }
+    top_level_resource_ids = [
+        r.id for r in scenario.resources
+        if r.id != scenario.root_resource_id and r.id not in explicitly_grouped
+    ]
     if root_resource is None:
         # Auto-create
         root_resource = Resource(
-            id=scenario.root_resource_id, name="Project", type=ResourceType.PROJECT
+            id=scenario.root_resource_id,
+            name="Project",
+            type=ResourceType.PROJECT,
+            subresource_ids=top_level_resource_ids,
         )
         _build_resource(root, root_resource)
     else:
+        # Respect an explicit list if the caller set one; otherwise auto-populate
+        if not root_resource.subresource_ids:
+            root_resource.subresource_ids = top_level_resource_ids
         _build_resource(root, root_resource)
 
     for r in scenario.resources:

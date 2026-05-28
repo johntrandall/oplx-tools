@@ -155,6 +155,10 @@ class Resource:
     email: str | None = None  # XML element is <email-address>
     schedule: ResourceSchedule | None = None
     custom_data: CustomData = field(default_factory=CustomData)
+    # Group / root resources list their members via <child-resource idref="..."/>.
+    # The root resource (r-1) MUST list every top-level user resource here, or
+    # OmniPlan silently drops every resource from the doc tree.
+    subresource_ids: list[str] = field(default_factory=list)
 
 
 @dataclass

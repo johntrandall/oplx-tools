@@ -90,6 +90,10 @@ def lint(oplx_path: str | Path) -> list[LintFinding]:
                 LintFinding("CRITICAL", "MISSING-ACTUAL", "Actual.xml is missing")
             )
 
+        # __TOC.xml-level checks (window view-config presence + scale sanity)
+        if toc is not None:
+            findings.extend(_check_window(toc))
+
         if actual is not None:
             findings.extend(_lint_scenario(actual, "Actual.xml"))
 
@@ -257,6 +261,68 @@ def _check_t1_collision(
                         file_label,
                     )
                 )
+
+    return findings
+
+
+def _check_window(toc: etree._Element) -> list[LintFinding]:
+    """Lint __TOC.xml's <window> view-config.
+
+    OmniPlan opens a file without <window>, but the runtime gantt-zoom
+    fallback picks a `full-day-width` so small that task bars become
+    sub-pixel. A file with <window> present but with a degenerate
+    `full-day-width` (<=0) on the selected scale renders even worse —
+    the entire outline+gantt area can fail to draw. Verified 2026-05-28
+    against OmniPlan 4.10.2 build 232.5.0.
+    """
+    findings: list[LintFinding] = []
+
+    window = toc.find(f"{{{NS}}}window")
+    if window is None:
+        findings.append(
+            LintFinding(
+                "MEDIUM",
+                "MISSING-WINDOW",
+                "__TOC.xml has no <window> view-config block. OmniPlan will "
+                "open the file but render the gantt area with task bars too "
+                "small to see. Generators must emit a <window> block with at "
+                "least a <task-view><gantt-view><scale .../> table.",
+                "__TOC.xml",
+            )
+        )
+        return findings
+
+    for scale in window.findall(f".//{{{NS}}}scale"):
+        name = scale.get("scale-name") or "?"
+        width = scale.get("full-day-width")
+        if width is None:
+            continue
+        try:
+            w = float(width)
+        except ValueError:
+            findings.append(
+                LintFinding(
+                    "MEDIUM",
+                    "WINDOW-SCALE-INVALID",
+                    f"<scale scale-name={name!r} full-day-width={width!r}/> "
+                    f"is not a number. OmniPlan needs a positive numeric "
+                    f"value to render bars at this zoom level.",
+                    "__TOC.xml",
+                )
+            )
+            continue
+        if w <= 0:
+            findings.append(
+                LintFinding(
+                    "MEDIUM",
+                    "WINDOW-SCALE-INVALID",
+                    f"<scale scale-name={name!r} full-day-width={width!r}/> "
+                    f"is not positive. OmniPlan renders an empty/broken view "
+                    f"at this zoom level. Set a positive day-width (e.g. 300 "
+                    f"for Automatic, 1215 for Day).",
+                    "__TOC.xml",
+                )
+            )
 
     return findings
 
