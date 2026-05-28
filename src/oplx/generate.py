@@ -20,6 +20,7 @@ from lxml import etree
 
 from .models import (
     Assignment,
+    Attachment,
     CustomData,
     Dependency,
     DependencyKind,
@@ -143,6 +144,12 @@ def _build_resource(parent: etree._Element, r: Resource) -> None:
     if r.schedule:
         _build_resource_schedule(r_el, r.schedule)
 
+    # subresources (groups and the root resource MUST list their members here,
+    # or OmniPlan silently drops every resource from the doc tree). Verified
+    # 2026-05-28 against OmniPlan 4.10.2 build 232.5.0.
+    for sid in r.subresource_ids:
+        etree.SubElement(r_el, "child-resource", attrib={"idref": sid})
+
     # custom data
     _build_user_data(r_el, r.custom_data)
 
@@ -235,6 +242,12 @@ def _build_task(parent: etree._Element, t: Task) -> None:
         e = etree.SubElement(t_el, "end-no-later-than")
         e.text = _iso(t.end_no_later_than)
 
+    # attachments (after static-cost / constraint dates, before prerequisites).
+    # Spec: oplx-format spec/actual-xml.md § <attachment>. Verified 2026-05-28
+    # against OmniPlan 4.10.2 build 232.5.0.
+    for att in t.attachments:
+        _build_attachment(t_el, att)
+
     # prerequisites
     for dep in t.prerequisites:
         _build_prerequisite(t_el, dep)
@@ -251,6 +264,30 @@ def _build_task(parent: etree._Element, t: Task) -> None:
 
     # custom data
     _build_user_data(t_el, t.custom_data)
+
+
+def _build_attachment(t_el: etree._Element, att: Attachment) -> None:
+    """Emit <attachment uri="..."><bookmarkData>...</bookmarkData></attachment>.
+
+    Refuses to emit a file:// attachment without bookmark_data — that
+    would produce a silently-ignored element in OmniPlan (the document
+    opens but `count attachments of task` returns 0). Caller should
+    populate bookmark_data via `oplx.bookmark.make_bookmark(path)`.
+    HTTP/HTTPS URIs are emitted without <bookmarkData>.
+    """
+    if not att.uri:
+        raise ValueError("Attachment.uri is required")
+    if att.is_file_uri and not att.bookmark_data:
+        raise ValueError(
+            f"Attachment uri={att.uri!r} is file:// but bookmark_data is empty. "
+            "OmniPlan silently ignores file:// attachments without <bookmarkData>. "
+            "Generate one via oplx.bookmark.make_bookmark(abspath) (requires "
+            "the [macos] extra)."
+        )
+    att_el = etree.SubElement(t_el, "attachment", attrib={"uri": att.uri})
+    if att.bookmark_data:
+        bm_el = etree.SubElement(att_el, "bookmarkData")
+        bm_el.text = att.bookmark_data
 
 
 def _build_prerequisite(t_el: etree._Element, dep: Dependency) -> None:
@@ -295,13 +332,30 @@ def _build_scenario(scenario: Scenario) -> bytes:
     root_resource = next(
         (r for r in scenario.resources if r.id == scenario.root_resource_id), None
     )
+    # Auto-populate the root resource's <child-resource> list with every
+    # top-level user resource — i.e. every user resource that isn't already
+    # a member of some other group resource's subresource_ids. Required:
+    # without these, OmniPlan silently drops every user resource on load.
+    explicitly_grouped = {
+        sid for r in scenario.resources for sid in r.subresource_ids
+    }
+    top_level_resource_ids = [
+        r.id for r in scenario.resources
+        if r.id != scenario.root_resource_id and r.id not in explicitly_grouped
+    ]
     if root_resource is None:
         # Auto-create
         root_resource = Resource(
-            id=scenario.root_resource_id, name="Project", type=ResourceType.PROJECT
+            id=scenario.root_resource_id,
+            name="Project",
+            type=ResourceType.PROJECT,
+            subresource_ids=top_level_resource_ids,
         )
         _build_resource(root, root_resource)
     else:
+        # Respect an explicit list if the caller set one; otherwise auto-populate
+        if not root_resource.subresource_ids:
+            root_resource.subresource_ids = top_level_resource_ids
         _build_resource(root, root_resource)
 
     for r in scenario.resources:
@@ -457,7 +511,7 @@ def generate(project: Project, out_path: str | Path, bundle: bool = False) -> Pa
     return out_path
 
 
-def from_yaml(yaml_text: str) -> Project:
+def from_yaml(yaml_text: str, base_dir: str | Path | None = None) -> Project:
     """Parse a YAML project description into a Project model.
 
     Schema (loose; see examples/ for full):
@@ -468,13 +522,37 @@ def from_yaml(yaml_text: str) -> Project:
         - id: t1
           title: Plan
           effort: 14400
+          attachments:
+            - path: docs/plan-brief.pdf            # resolved against base_dir
+            - uri: file:///absolute/path/file.txt  # used verbatim
+            - uri: https://example.com/spec.html   # no bookmark needed
         - id: t2
           title: Build
           effort: 28800
           depends_on: [t1]
+
+    Args:
+        yaml_text: The YAML source.
+        base_dir: Optional directory to resolve attachment ``path:`` entries
+            against. When None, relative attachment paths are resolved against
+            the current working directory. ``from_yaml_file()`` sets this to
+            the YAML file's parent automatically.
+
+    Attachment handling:
+        - Items with ``path:`` are resolved (against ``base_dir`` if relative)
+          and passed through ``oplx.bookmark.make_bookmark()`` to generate
+          the ``file://`` URI + base64 bookmark data. This requires the
+          ``[macos]`` extra; raises ``BookmarkUnavailableError`` otherwise.
+        - Items with ``uri:`` are used verbatim. For ``file://`` URIs, the
+          caller is responsible for supplying ``bookmark_data:`` (otherwise
+          the generator will refuse to emit and the lint will fire
+          ``ATTACH-NO-BOOKMARK``).
+        - ``http://`` / ``https://`` URIs do not need ``bookmark_data``.
     """
     data = yaml.safe_load(StringIO(yaml_text))
     project = Project(title=data.get("title", ""))
+
+    base = Path(base_dir) if base_dir is not None else Path.cwd()
 
     # Tasks
     for t_data in data.get("tasks", []):
@@ -486,6 +564,8 @@ def from_yaml(yaml_text: str) -> Project:
         )
         for prereq_id in t_data.get("depends_on", []):
             task.prerequisites.append(Dependency(idref=prereq_id))
+        for att_data in t_data.get("attachments", []):
+            task.attachments.append(_attachment_from_yaml(att_data, base))
         project.actual.tasks.append(task)
 
     # start_date — PyYAML may already have parsed it as a datetime
@@ -498,3 +578,54 @@ def from_yaml(yaml_text: str) -> Project:
         project.actual.start_date = datetime.fromisoformat(sd.replace("Z", "+00:00"))
 
     return project
+
+
+def from_yaml_file(yaml_path: str | Path) -> Project:
+    """Load a YAML project description from a file path.
+
+    Sets ``base_dir`` to the file's parent so relative attachment paths
+    (``attachments: [{path: docs/spec.pdf}]``) resolve against the YAML
+    file's directory rather than the caller's CWD.
+    """
+    yaml_path = Path(yaml_path)
+    return from_yaml(yaml_path.read_text(), base_dir=yaml_path.parent)
+
+
+def _attachment_from_yaml(att_data: Any, base_dir: Path) -> "Attachment":
+    """Build an Attachment from a YAML mapping.
+
+    Supports two shapes::
+
+        # path: relative or absolute filesystem path; bookmark generated
+        - path: docs/spec.pdf
+
+        # uri: raw URI; bookmark_data optional for http(s)://
+        - uri: file:///abs/path/file.pdf
+          bookmark_data: BASE64...
+
+    """
+    from .models import Attachment
+
+    if not isinstance(att_data, dict):
+        raise ValueError(
+            f"attachment must be a mapping (got {type(att_data).__name__}): {att_data!r}"
+        )
+
+    if "path" in att_data:
+        from .bookmark import make_bookmark
+
+        raw = Path(att_data["path"])
+        resolved = raw if raw.is_absolute() else (base_dir / raw).resolve()
+        uri, b64 = make_bookmark(resolved)
+        return Attachment(uri=uri, bookmark_data=b64)
+
+    if "uri" in att_data:
+        return Attachment(
+            uri=att_data["uri"],
+            bookmark_data=att_data.get("bookmark_data", ""),
+        )
+
+    raise ValueError(
+        f"attachment entry must have either `path:` (filesystem path, "
+        f"bookmark auto-generated) or `uri:` (raw URI). Got: {att_data!r}"
+    )

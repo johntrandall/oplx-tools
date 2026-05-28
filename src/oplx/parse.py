@@ -14,6 +14,7 @@ from lxml import etree
 
 from .models import (
     Assignment,
+    Attachment,
     CustomData,
     Dependency,
     DependencyKind,
@@ -186,6 +187,14 @@ def _parse_task(t: etree._Element) -> Task:
 
         prereqs.append(Dependency(idref=idref, kind=kind, lead_time=lt))
 
+    # Attachments
+    attachments: list[Attachment] = []
+    for att_el in t.findall(_q("attachment")):
+        uri = att_el.get("uri") or ""
+        bm_el = att_el.find(_q("bookmarkData"))
+        bookmark_data = (bm_el.text or "").strip() if bm_el is not None else ""
+        attachments.append(Attachment(uri=uri, bookmark_data=bookmark_data))
+
     # Assignments
     assignments: list[Assignment] = []
     for assn in t.findall(_q("assignment")):
@@ -227,6 +236,7 @@ def _parse_task(t: etree._Element) -> Task:
         start_no_later_than=_opt_dt("start-no-later-than"),
         end_no_earlier_than=_opt_dt("end-no-earlier-than"),
         end_no_later_than=_opt_dt("end-no-later-than"),
+        attachments=attachments,
         prerequisites=prereqs,
         assignments=assignments,
         subtask_ids=[s for s in subtask_ids if s],

@@ -1,9 +1,9 @@
 WBS Number,Title,Start,End,Duration hours,Duration,Effort hours,Effort,Completed,Task Cost,Assigned,Planned Start,Start Variance,Planned End,End Variance,Start After,End Before,Prerequisites,Notes,Priority,Resources Cost,Total Task Cost
 1,Kickoff,"6/1/26, 1:00 PM","6/1/26, 1:00 PM",,,,,0%,,,,,,,,,,,,,
-2,Design phase,"6/1/26, 1:00 PM","6/2/26, 12:00 PM",8,1d,12,1d 4h,0%,$500.00,,,,,,,,,,,,$500.00
-2.1,Architecture,"6/1/26, 1:00 PM","6/2/26, 12:00 PM",8,1d,8,1d,0%,$500.00,,,,,,,,1,ADR template required.,8,,$500.00
-2.2,Schema review,"6/1/26, 2:00 PM","6/2/26, 9:00 AM",4,4h,4,4h,0%,,,,,,,,,2.1SS+1h,,0,,
-3,Build phase,"6/2/26, 1:00 PM","6/4/26, 12:00 PM",16,2d,20,2d 4h,0%,,,,,,,,,,,,,
-3.1,Implementation,"6/2/26, 1:00 PM","6/4/26, 12:00 PM",16,2d,16,2d,0%,,,,,,,,,2,,0,,
-3.2,Test pass,"6/4/26, 8:00 AM","6/4/26, 12:00 PM",4,4h,4,4h,0%,,,,,,,,,3.1FF,,0,,
-4,Ship,"6/4/26, 12:00 PM","6/4/26, 12:00 PM",,,,,0%,,,,,,,,,"3.2, 3.1",,,,
+2,Design phase,"6/1/26, 1:00 PM","6/2/26, 2:00 PM",9,1d 1h,12,1d 4h,0%,$500.00,,,,,,,,,,,"$1,400.00","$1,900.00"
+2.1,Architecture,"6/1/26, 1:00 PM","6/2/26, 12:00 PM",8,1d,8,1d,0%,$500.00,Alice,,,,,,,1,ADR template required.,8,"$1,000.00","$1,500.00"
+2.2,Schema review,"6/1/26, 2:00 PM","6/2/26, 2:00 PM",8,1d,4,4h,0%,,Bob,,,,,,,2.1SS+1h,,0,$400.00,$400.00
+3,Build phase,"6/2/26, 2:00 PM","6/4/26, 2:00 PM",16,2d,36,4d 4h,0%,,,,,,,,,,,,"$4,200.00","$4,200.00"
+3.1,Implementation,"6/2/26, 2:00 PM","6/4/26, 2:00 PM",16,2d,32,4d,0%,,Alice; Bob; AWS bill,,,,,,,2,,0,"$3,800.00","$3,800.00"
+3.2,Test pass,"6/4/26, 9:00 AM","6/4/26, 2:00 PM",4,4h,4,4h,0%,,Bob,,,,,,,3.1FF,,0,$400.00,$400.00
+4,Ship,"6/4/26, 2:00 PM","6/4/26, 2:00 PM",,,,,0%,,,,,,,,,"3.2, 3.1",,,,

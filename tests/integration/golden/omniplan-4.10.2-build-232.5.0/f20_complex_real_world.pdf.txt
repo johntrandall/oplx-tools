@@ -12,7 +12,7 @@ Eﬀort
 
 3) Build phase
 
-2d 4h
+4d 4h
 
 4) Ship
 
