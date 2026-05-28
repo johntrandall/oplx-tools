@@ -109,6 +109,44 @@ class Note:
 
 
 @dataclass
+class Attachment:
+    """A task attachment.
+
+    Wire form:
+        <attachment uri="file:///abs/path">
+          <bookmarkData>BASE64_NSURL_BOOKMARK</bookmarkData>
+        </attachment>
+
+    For local file:// URIs, ``bookmark_data`` is REQUIRED — an
+    <attachment> emitted without <bookmarkData> opens cleanly in OmniPlan
+    but `count attachments of task` returns 0 (silent-ignore failure
+    mode; see oplx-format/spec/silent-corruption.md `ATTACH-NO-BOOKMARK`).
+    The generator refuses to emit a file:// attachment with empty
+    bookmark_data; the lint surfaces the same finding for hand-edited
+    bundles.
+
+    HTTP/HTTPS URIs do not require bookmark_data — OmniPlan resolves
+    them as network references. The lint pass-throughs http(s):// URIs
+    without complaint.
+
+    Use ``oplx.bookmark.make_bookmark(path)`` (macOS-only, requires the
+    optional ``[macos]`` extra) to generate ``bookmark_data`` from a
+    local path.
+    """
+
+    uri: str
+    bookmark_data: str = ""  # base64-encoded macOS NSURL bookmark; required for file:// URIs
+
+    @property
+    def is_file_uri(self) -> bool:
+        return self.uri.startswith("file://")
+
+    @property
+    def is_http_uri(self) -> bool:
+        return self.uri.startswith("http://") or self.uri.startswith("https://")
+
+
+@dataclass
 class TimeSpan:
     """A working-hours range within a day."""
 
@@ -183,6 +221,7 @@ class Task:
     start_no_later_than: datetime | None = None
     end_no_earlier_than: datetime | None = None
     end_no_later_than: datetime | None = None
+    attachments: list[Attachment] = field(default_factory=list)
     prerequisites: list[Dependency] = field(default_factory=list)
     assignments: list[Assignment] = field(default_factory=list)
     subtask_ids: list[str] = field(default_factory=list)  # for groups

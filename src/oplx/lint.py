@@ -230,6 +230,9 @@ def _lint_scenario(scenario: etree._Element, file_label: str) -> list[LintFindin
     # Orphaned task check (every <task id="tN"> must be reachable from <top-task>)
     findings.extend(_check_task_reachability(scenario, file_label))
 
+    # Attachment lints: <bookmarkData> presence + (optional) file existence.
+    findings.extend(_check_attachments(scenario, file_label))
+
     return findings
 
 
@@ -388,6 +391,110 @@ def _check_dependency_targets(
                     file_label,
                 )
             )
+
+    return findings
+
+
+def _check_attachments(
+    scenario: etree._Element, file_label: str
+) -> list[LintFinding]:
+    """Lint <attachment> elements per task.
+
+    - ATTACH-NO-BOOKMARK (HIGH): a <attachment> with a file:// URI lacks
+      <bookmarkData> or has empty content. OmniPlan silently ignores
+      such attachments on load — the document opens, no error, but
+      `count attachments of task` returns 0. Verified 2026-05-28 against
+      OmniPlan 4.10.2 build 232.5.0. See oplx-format spec §
+      silent-corruption.md `ATTACH-NO-BOOKMARK`.
+
+    - ATTACH-NO-FILE (MEDIUM): a file:// URI points at a path that does
+      not exist on the current host. OmniPlan still accepts the
+      attachment (the bookmark is what actually resolves it on Mac, not
+      the URI), but a missing file usually indicates a stale path. Skip
+      this check for http:// / https:// URIs.
+    """
+    findings: list[LintFinding] = []
+
+    for task in scenario.findall(f".//{{{NS}}}task"):
+        tid = task.get("id") or "?"
+        for att in task.findall(f"{{{NS}}}attachment"):
+            uri = att.get("uri") or ""
+            if not uri:
+                findings.append(
+                    LintFinding(
+                        "HIGH",
+                        "ATTACH-NO-URI",
+                        f"<task id={tid!r}><attachment/> has no uri attribute. "
+                        f"OmniPlan requires `uri=\"file:///...\"` (or http(s)://).",
+                        file_label,
+                    )
+                )
+                continue
+
+            is_file = uri.startswith("file://")
+            is_http = uri.startswith("http://") or uri.startswith("https://")
+
+            if is_file:
+                bm = att.find(f"{{{NS}}}bookmarkData")
+                if bm is None or not (bm.text and bm.text.strip()):
+                    findings.append(
+                        LintFinding(
+                            "HIGH",
+                            "ATTACH-NO-BOOKMARK",
+                            f"<task id={tid!r}><attachment uri={uri!r}/> has no "
+                            f"<bookmarkData> child (or it is empty). OmniPlan "
+                            f"silently IGNORES file:// attachments without "
+                            f"<bookmarkData> — the document opens cleanly, "
+                            f"but `count attachments of task` returns 0. Fix "
+                            f"by generating a bookmark via "
+                            f"`oplx.bookmark.make_bookmark(abspath)` (requires "
+                            f"the [macos] extra) and emitting "
+                            f"<bookmarkData>BASE64</bookmarkData> as a child.",
+                            file_label,
+                        )
+                    )
+                    continue
+
+                # ATTACH-NO-FILE — best-effort, host-dependent check.
+                from urllib.parse import unquote, urlparse
+
+                parsed = urlparse(uri)
+                local_path = unquote(parsed.path)
+                if local_path and not Path(local_path).exists():
+                    findings.append(
+                        LintFinding(
+                            "MEDIUM",
+                            "ATTACH-NO-FILE",
+                            f"<task id={tid!r}><attachment uri={uri!r}/> points "
+                            f"at a local path that does not exist on this host "
+                            f"({local_path!r}). OmniPlan still loads the "
+                            f"attachment (the bookmark is what actually "
+                            f"resolves the file on the original Mac), but a "
+                            f"missing file usually indicates a stale path. "
+                            f"This check is host-dependent — if you're "
+                            f"linting on a different machine than where the "
+                            f".oplx will be opened, this finding may be a "
+                            f"false positive.",
+                            file_label,
+                        )
+                    )
+            elif is_http:
+                # http(s):// URIs are network-resolved — no <bookmarkData>
+                # needed. Pass through without complaint.
+                continue
+            else:
+                findings.append(
+                    LintFinding(
+                        "MEDIUM",
+                        "ATTACH-URI-SCHEME",
+                        f"<task id={tid!r}><attachment uri={uri!r}/> uses an "
+                        f"unrecognized URI scheme. OmniPlan is known to "
+                        f"accept file:// (with <bookmarkData>) and http(s):// "
+                        f"(without). Other schemes have not been verified "
+                        f"and may be silently ignored.",
+                        file_label,
+                    )
+                )
 
     return findings
 

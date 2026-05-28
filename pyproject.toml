@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "oplx-tools"
-version = "0.1.1"
+version = "0.2.0"
 description = "Generate, lint, and parse OmniPlan .oplx files. Companion to the oplx-format spec."
 readme = "README.md"
 license = { text = "MIT" }
@@ -26,6 +26,11 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0", "pytest-cov", "ruff", "mypy"]
+# macOS-only: pyobjc-framework-Cocoa is needed for oplx.bookmark.make_bookmark,
+# which generates the <bookmarkData> child of <attachment> elements.
+# Skip on non-Mac platforms — .oplx generation works without it as long as
+# you're not emitting file:// <attachment> elements.
+macos = ["pyobjc-framework-Cocoa>=10.0; sys_platform == 'darwin'"]
 
 [project.scripts]
 oplx = "oplx.cli:main"

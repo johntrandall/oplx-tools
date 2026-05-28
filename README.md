@@ -240,6 +240,7 @@ src/oplx/
 - ✅ All 4 dependency kinds with optional lead-time (duration or percentage)
 - ✅ All 4 date constraints
 - ✅ Multi-resource assignment with units
+- ✅ Task attachments (`<attachment>` with `<bookmarkData>` via `oplx.bookmark.make_bookmark()`; macOS-only — requires the `[macos]` extra `pip install 'oplx-tools[macos]'`)
 - ✅ Custom data (string values; other types not yet wired)
 - ✅ Per-resource schedule overrides (basic)
 - ✅ Multi-baseline scenarios
@@ -249,7 +250,7 @@ src/oplx/
 - ❌ `<filter>` saved-filter generation (would need NSPredicate bplist construction)
 
 `oplx lint`:
-- ✅ Silent-corruption catalog (all CRITICAL + HIGH tier patterns)
+- ✅ Silent-corruption catalog (all CRITICAL + HIGH tier patterns, including `ATTACH-NO-BOOKMARK` for `<attachment>` missing `<bookmarkData>`)
 - ✅ Element-ordering rules
 - ✅ Element-presence requirements (every task reachable from `t-1`)
 - ⚠️ XML schema validation (loose; relies on examples not a formal XSD/Relax-NG)
