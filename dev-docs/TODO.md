@@ -29,10 +29,10 @@ needs ~5 minutes of host-OmniPlan MCP probing to confirm or rule out:
    If reproduced, add a sibling lint code `RESOURCE-ID-NUMBERING`.
 
 2. **`t-2` style ids** — OmniPlan-saved files use `t-2`, `t-3` as
-   `<prototype-task>` ids. Lint rejects them (regex `^t\d+$` doesn't
-   match the hyphen). Whether OmniPlan would actually drop siblings
-   on a `t-2` *user* task id (not a prototype) is untested. The lint
-   rejection is the safe call regardless, but verify.
+   `<prototype-task>` ids. Lint rejects them (regex `^t[1-9]\d*$`
+   doesn't match the hyphen). Whether OmniPlan would actually drop
+   siblings on a `t-2` *user* task id (not a prototype) is untested.
+   The lint rejection is the safe call regardless, but verify.
 
 3. **Non-conforming id as `<prerequisite-task idref>` target** —
    matrix tested sibling drops at the task-tree level only. If a
