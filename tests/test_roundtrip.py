@@ -70,6 +70,15 @@ def test_minimum_viable_roundtrip(tmp_path: Path) -> None:
     titles = {t.title for t in parsed.actual.tasks if not t.id.startswith("t-")}
     assert titles == {"Plan", "Build", "Ship"}
 
+    # Generator must emit <window> in __TOC.xml so OmniPlan renders gantt bars
+    # (parse drops <window> so this can't be checked via the parsed Project).
+    import zipfile as _zipfile
+
+    with _zipfile.ZipFile(out) as z:
+        toc_xml = z.read("__TOC.xml").decode()
+    assert "<window>" in toc_xml, "missing <window> — gantt bars would render blank"
+    assert "<gantt-view>" in toc_xml
+
 
 def test_dependency_kind_roundtrip(tmp_path: Path) -> None:
     proj = Project(

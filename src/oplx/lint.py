@@ -287,8 +287,8 @@ def _check_task_id_numbering(
                     f"`t<digits>` convention OmniPlan expects. OmniPlan's "
                     f"reader silently drops sibling tasks when any sibling's "
                     f"id deviates from this pattern. Fix by renaming to a "
-                    f"t-numbered id (e.g. `t2`, `t10`) and updating every "
-                    f"idref that points at it.",
+                    f"t-numbered id (e.g. `t1`, `t2`, `t10`) and updating "
+                    f"every idref that points at it.",
                     file_label,
                 )
             )

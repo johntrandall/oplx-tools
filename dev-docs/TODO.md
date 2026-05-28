@@ -54,5 +54,15 @@ needs ~5 minutes of host-OmniPlan MCP probing to confirm or rule out:
    with `t1` as a direct root-group child would catch this on the
    next OmniPlan version bump.
 
-Bundle these into one investigation session; they all need the same
-setup (host OmniPlan + MCP).
+6. **Lint doesn't enforce `<window>` presence in `__TOC.xml`** — the
+   round-2 bug-coverage verifier observed an asymmetric contract:
+   `generate()` always writes `<window>`, but `lint()` never reads
+   `__TOC.xml` looking for it. A hand-edited `.oplx` with `<window>`
+   stripped passes lint clean but renders blank bars in OmniPlan.
+   Either add a `MISSING-WINDOW` lint code (MEDIUM) or accept the
+   generator-always-writes contract as sufficient and document
+   the gap in the silent-corruption catalog.
+
+Items 1-5 need OmniPlan probing; item 6 is a pure lint addition.
+Bundle 1-5 into one investigation session (they all need the same
+host-OmniPlan + MCP setup).
